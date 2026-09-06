@@ -47,6 +47,9 @@ specs/001-supplier-directory/
 ### Source Code (repository root)
 
 ```text
+middleware.ts                     # Session-cookie auth gate for (dashboard)/* — MUST live at
+                                   # repo root; Next.js does not run middleware placed inside app/
+
 app/
 ├── (auth)/
 │   └── login/
@@ -60,10 +63,10 @@ app/
 │           ├── page.tsx          # Detail view
 │           └── edit/
 │               └── page.tsx      # Edit form
-├── actions/
-│   └── suppliers.ts              # Server Actions: createSupplier, updateSupplier,
-│                                  # setSupplierStatus, listSuppliers, getSupplier
-└── middleware.ts                 # Session-cookie auth gate for (dashboard)/*
+└── actions/
+    └── suppliers.ts              # Server Actions: createSupplier, updateSupplier,
+                                   # setSupplierStatus, listSuppliers, getSupplier,
+                                   # checkDuplicateSupplierName
 
 lib/
 ├── firebase/
@@ -82,15 +85,9 @@ components/
     ├── supplier-filters.tsx       # Search box + material/status filter controls
     └── contact-fields.tsx         # Repeatable contact sub-form
 
-tests/
-├── unit/
-│   └── suppliers/
-│       ├── schema.test.ts
-│       └── service.test.ts
-└── integration/
-    └── actions/
-        └── suppliers.test.ts       # Against Firestore Emulator
 ```
+
+**Testing note**: No `tests/` tree is scaffolded by tasks.md for this feature (spec.md did not request TDD, per Task Generation Rules). When automated tests are added later, they belong at `tests/unit/suppliers/{schema,service}.test.ts` and `tests/integration/actions/suppliers.test.ts`, using the Vitest + Firestore Emulator stack already chosen in research.md.
 
 **Structure Decision**: Single Next.js application (Option 1 shape, web variant) — no separate `backend/`/`frontend/` split, since Server Components/Actions in the same app play both roles. This matches the "Single project" default in the plan template and avoids the complexity of a second deployable for an internal tool with one client.
 

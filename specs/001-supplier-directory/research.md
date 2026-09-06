@@ -52,6 +52,12 @@ Resolves all technical unknowns before design. Each decision follows the project
 - **Rationale**: Matches the Next.js/TypeScript ecosystem default, runs fast without hitting real Firestore, and the Firestore Emulator gives realistic integration coverage without cloud costs during development.
 - **Alternatives considered**: Playwright e2e for this feature — deferred; worth adding once there are enough features for a meaningful end-to-end flow (e.g., after Purchase Orders references Supplier).
 
+## Decision: Duplicate-name detection — exact match on `companyNameLower`, non-blocking warning
+
+- **Decision**: When a staff member enters/edits a company name, a Server Action queries `suppliers` for an exact `companyNameLower` match and returns any hits; the form shows a non-blocking warning ("A supplier named X already exists") without preventing submission.
+- **Rationale**: Spec Edge Cases requires flagging potential duplicates on entry, and spec Assumptions explicitly says duplicates are "permitted (flagged, not blocked)". An exact-match query on the existing `companyNameLower` field (already indexed for the default list sort) needs no new index or fuzzy-matching infrastructure.
+- **Alternatives considered**: Fuzzy/similarity matching (e.g., Levenshtein distance) — rejected as over-engineering; spec only asks for a flag, not deduplication, and exact-match on the normalized name catches the common case (re-entering the same supplier) with zero added infrastructure.
+
 ## Resolved Technical Context
 
 | Item | Value |

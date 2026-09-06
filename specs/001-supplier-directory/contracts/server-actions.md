@@ -39,3 +39,10 @@ All actions:
 - **Input**: Supplier `id`.
 - **Behavior**: Fetches full document for detail view (FR-004).
 - **Output**: Full Supplier record or `null` if not found.
+
+## `checkDuplicateSupplierName(companyName: string): Promise<{ id: string; companyName: string }[]>`
+
+- **Input**: Company name as currently typed in the create/edit form.
+- **Behavior**: Queries `suppliers` for documents where `companyNameLower` exactly equals the lowercased input (see research.md's duplicate-detection decision). Never blocks or throws on a match — purely informational.
+- **Output**: Zero or more `{ id, companyName }` matches, for the form to render as a non-blocking warning (spec Edge Cases).
+- **Errors**: None expected beyond generic infra failure.

@@ -12,6 +12,8 @@ description: "Task list for Supplier Directory implementation"
 
 **Organization**: Tasks are grouped by user story (from spec.md: US1 = P1, US2 = P2, US3 = P3) to enable independent implementation and testing of each.
 
+> Updated after `/sp.analyze`: fixed the `middleware.ts` location (I1), added duplicate-name-warning tasks (G1: T016, T019), and added a success-criteria verification task (G2: T037). See `history/prompts/001-supplier-directory/` for the analysis PHR.
+
 ## Format: `[ID] [P?] [Story] Description`
 
 - **[P]**: Can run in parallel (different files, no dependencies)
@@ -21,6 +23,7 @@ description: "Task list for Supplier Directory implementation"
 
 Single Next.js project at repository root, per plan.md's Project Structure:
 
+- `middleware.ts` — auth gate, at repository root (Next.js requires this location, not inside `app/`)
 - `app/` — routes, layouts, Server Actions
 - `lib/` — Firebase clients, schemas, Firestore service functions
 - `components/` — UI components
@@ -48,7 +51,7 @@ Single Next.js project at repository root, per plan.md's Project Structure:
 - [ ] T006 [P] Initialize Firebase client SDK (Auth only) in `lib/firebase/client.ts`
 - [ ] T007 [P] Initialize Firebase Admin SDK (server-only) in `lib/firebase/admin.ts`
 - [ ] T008 Implement session-cookie create/verify helpers in `lib/auth/session.ts` (depends on T007)
-- [ ] T009 Implement route-protection middleware in `app/middleware.ts` that checks the session cookie on all `(dashboard)/*` routes (depends on T008)
+- [ ] T009 Implement route-protection middleware in `middleware.ts` **at the repository root** (sibling of `app/`, not inside it) that checks the session cookie on all `(dashboard)/*` routes (depends on T008)
 - [ ] T010 [P] Build login page (Firebase Auth email/password sign-in) in `app/(auth)/login/page.tsx` (depends on T006)
 - [ ] T011 [P] Define shared `Supplier` and `Contact` Zod schemas in `lib/suppliers/schema.ts` per [data-model.md](./data-model.md)
 - [ ] T012 Create base Firestore service module (collection reference, `Supplier`/`Contact` converters) in `lib/suppliers/service.ts` (depends on T007, T011)
@@ -68,12 +71,14 @@ Single Next.js project at repository root, per plan.md's Project Structure:
 
 - [ ] T014 [US1] Implement `createSupplier` Server Action in `app/actions/suppliers.ts` per [contracts/server-actions.md](./contracts/server-actions.md) (depends on T012)
 - [ ] T015 [US1] Implement `getSupplier` and unfiltered `listSuppliers` functions in `lib/suppliers/service.ts` (depends on T012)
-- [ ] T016 [P] [US1] Build `SupplierForm` component (create mode) with `react-hook-form` + Zod resolver in `components/suppliers/supplier-form.tsx`
-- [ ] T017 [P] [US1] Build repeatable `ContactFields` sub-form in `components/suppliers/contact-fields.tsx`
-- [ ] T018 [US1] Build "Add Supplier" page in `app/(dashboard)/suppliers/new/page.tsx`, wiring `SupplierForm` to `createSupplier` (depends on T014, T016, T017)
-- [ ] T019 [US1] Build supplier list page (Server Component) in `app/(dashboard)/suppliers/page.tsx` rendering `listSuppliers()` results (name, materials, status) (depends on T015)
-- [ ] T020 [US1] Build supplier detail page in `app/(dashboard)/suppliers/[supplierId]/page.tsx` showing all fields via `getSupplier()` (depends on T015)
-- [ ] T021 [US1] Add field-level validation error display to `SupplierForm` for missing company name / no material / no valid contact (FR-002, spec Edge Cases) (depends on T016)
+- [ ] T016 [US1] Implement `checkDuplicateSupplierName` Server Action in `app/actions/suppliers.ts`, querying `companyNameLower` for exact matches per [contracts/server-actions.md](./contracts/server-actions.md) and research.md's duplicate-detection decision (depends on T012) — addresses spec Edge Case: flagging potential duplicate company names
+- [ ] T017 [P] [US1] Build `SupplierForm` component (create mode) with `react-hook-form` + Zod resolver in `components/suppliers/supplier-form.tsx`
+- [ ] T018 [P] [US1] Build repeatable `ContactFields` sub-form in `components/suppliers/contact-fields.tsx`
+- [ ] T019 [US1] Wire a non-blocking duplicate-name warning into `SupplierForm`, calling `checkDuplicateSupplierName` on company-name blur (depends on T016, T017)
+- [ ] T020 [US1] Build "Add Supplier" page in `app/(dashboard)/suppliers/new/page.tsx`, wiring `SupplierForm` to `createSupplier` (depends on T014, T017, T018, T019)
+- [ ] T021 [US1] Build supplier list page (Server Component) in `app/(dashboard)/suppliers/page.tsx` rendering `listSuppliers()` results (name, materials, status) (depends on T015)
+- [ ] T022 [US1] Build supplier detail page in `app/(dashboard)/suppliers/[supplierId]/page.tsx` showing all fields via `getSupplier()` (depends on T015)
+- [ ] T023 [US1] Add field-level validation error display to `SupplierForm` for missing company name / no material / no valid contact (FR-002, spec Edge Cases) (depends on T017)
 
 **Checkpoint**: User Story 1 is fully functional and independently testable — this is the MVP.
 
@@ -87,12 +92,12 @@ Single Next.js project at repository root, per plan.md's Project Structure:
 
 ### Implementation for User Story 2
 
-- [ ] T022 [US2] Extend `listSuppliers` in `lib/suppliers/service.ts` to accept `status` and `material` Firestore query filters per [contracts/server-actions.md](./contracts/server-actions.md) (depends on T015)
-- [ ] T023 [US2] Add in-memory case-insensitive company-name substring filtering to `listSuppliers` per the research.md search decision (depends on T022)
-- [ ] T024 [P] [US2] Build `SupplierFilters` component (search box + material/status controls) in `components/suppliers/supplier-filters.tsx`
-- [ ] T025 [US2] Wire `SupplierFilters` into the supplier list page via URL search params in `app/(dashboard)/suppliers/page.tsx` (depends on T019, T023, T024)
-- [ ] T026 [US2] Build `SupplierList` client component with an explicit "no results" empty state in `components/suppliers/supplier-list.tsx` (depends on T025)
-- [ ] T027 [US2] Default the list page to `status=active` when no status filter is present, per FR-011 (depends on T025)
+- [ ] T024 [US2] Extend `listSuppliers` in `lib/suppliers/service.ts` to accept `status` and `material` Firestore query filters per [contracts/server-actions.md](./contracts/server-actions.md) (depends on T015)
+- [ ] T025 [US2] Add in-memory case-insensitive company-name substring filtering to `listSuppliers` per the research.md search decision (depends on T024)
+- [ ] T026 [P] [US2] Build `SupplierFilters` component (search box + material/status controls) in `components/suppliers/supplier-filters.tsx`
+- [ ] T027 [US2] Wire `SupplierFilters` into the supplier list page via URL search params in `app/(dashboard)/suppliers/page.tsx` (depends on T021, T025, T026)
+- [ ] T028 [US2] Build `SupplierList` client component with an explicit "no results" empty state in `components/suppliers/supplier-list.tsx` (depends on T027)
+- [ ] T029 [US2] Default the list page to `status=active` when no status filter is present, per FR-011 (depends on T027)
 
 **Checkpoint**: User Stories 1 AND 2 both work independently.
 
@@ -106,11 +111,11 @@ Single Next.js project at repository root, per plan.md's Project Structure:
 
 ### Implementation for User Story 3
 
-- [ ] T028 [US3] Implement `updateSupplier` Server Action in `app/actions/suppliers.ts` per [contracts/server-actions.md](./contracts/server-actions.md) (depends on T014)
-- [ ] T029 [US3] Implement `setSupplierStatus` Server Action (deactivate/reactivate; no-op if already in the target status per spec Edge Cases) in `app/actions/suppliers.ts` (depends on T012)
-- [ ] T030 [US3] Build edit page in `app/(dashboard)/suppliers/[supplierId]/edit/page.tsx`, reusing `SupplierForm` in edit mode pre-filled via `getSupplier()` (depends on T016, T020, T028)
-- [ ] T031 [P] [US3] Add a Deactivate/Reactivate control with confirmation to the supplier detail page `app/(dashboard)/suppliers/[supplierId]/page.tsx` (depends on T020, T029)
-- [ ] T032 [US3] Ensure `updateSupplier` cannot change `status` directly — status only changes via `setSupplierStatus` (FR-005 vs FR-006/FR-007) (depends on T028, T029)
+- [ ] T030 [US3] Implement `updateSupplier` Server Action in `app/actions/suppliers.ts` per [contracts/server-actions.md](./contracts/server-actions.md) (depends on T014)
+- [ ] T031 [US3] Implement `setSupplierStatus` Server Action (deactivate/reactivate; no-op if already in the target status per spec Edge Cases) in `app/actions/suppliers.ts` (depends on T012)
+- [ ] T032 [US3] Build edit page in `app/(dashboard)/suppliers/[supplierId]/edit/page.tsx`, reusing `SupplierForm` in edit mode pre-filled via `getSupplier()` (depends on T017, T022, T030)
+- [ ] T033 [P] [US3] Add a Deactivate/Reactivate control with confirmation to the supplier detail page `app/(dashboard)/suppliers/[supplierId]/page.tsx` (depends on T022, T031)
+- [ ] T034 [US3] Ensure `updateSupplier` cannot change `status` directly — status only changes via `setSupplierStatus` (FR-005 vs FR-006/FR-007) (depends on T030, T031)
 
 **Checkpoint**: All three user stories are independently functional.
 
@@ -120,11 +125,12 @@ Single Next.js project at repository root, per plan.md's Project Structure:
 
 **Purpose**: Improvements spanning all user stories.
 
-- [ ] T033 [P] Author `firestore.indexes.json` with the status+name and status+material composite indexes from [data-model.md](./data-model.md) and deploy via `firebase deploy --only firestore:indexes`
-- [ ] T034 [P] Add loading and error states across the supplier list, detail, and form pages
-- [ ] T035 Run the [quickstart.md](./quickstart.md) manual verification flow end-to-end against all three user stories
-- [ ] T036 [P] Add Firestore Security Rules that deny all direct client access (server-only access via Admin SDK, per research.md) in `firestore.rules`
-- [ ] T037 Review that no client bundle imports `firebase-admin` (server-only boundary from plan.md's Technical Context constraint)
+- [ ] T035 [P] Author `firestore.indexes.json` with the status+name and status+material composite indexes from [data-model.md](./data-model.md) and deploy via `firebase deploy --only firestore:indexes`
+- [ ] T036 [P] Add loading and error states across the supplier list, detail, and form pages
+- [ ] T037 Verify success criteria SC-001/SC-002/SC-004: seed ~500 supplier records (script or emulator import), then time supplier creation (target <2min, SC-001), name search (target <10s, SC-002), and confirm list/filter results render in under 2s at that scale (SC-004)
+- [ ] T038 Run the [quickstart.md](./quickstart.md) manual verification flow end-to-end against all three user stories (may reuse the T037 seed data)
+- [ ] T039 [P] Add Firestore Security Rules that deny all direct client access (server-only access via Admin SDK, per research.md) in `firestore.rules`
+- [ ] T040 Review that no client bundle imports `firebase-admin` (server-only boundary from plan.md's Technical Context constraint)
 
 ---
 
@@ -136,8 +142,8 @@ Single Next.js project at repository root, per plan.md's Project Structure:
 - **Foundational (Phase 2)**: Depends on Setup completion — BLOCKS all user stories.
 - **User Stories (Phase 3–5)**: All depend on Foundational completion.
   - US1 has no dependency on US2/US3.
-  - US2 depends on US1's `listSuppliers`/list page existing (T015, T019) to extend rather than duplicate.
-  - US3 depends on US1's `createSupplier`/form/detail page existing (T014, T016, T020) to extend rather than duplicate.
+  - US2 depends on US1's `listSuppliers`/list page existing (T015, T021) to extend rather than duplicate.
+  - US3 depends on US1's `createSupplier`/form/detail page existing (T014, T017, T022) to extend rather than duplicate.
   - Despite these implementation-reuse dependencies, each story remains independently *testable* once its phase completes.
 - **Polish (Phase 6)**: Depends on all three user stories being complete.
 
@@ -145,10 +151,10 @@ Single Next.js project at repository root, per plan.md's Project Structure:
 
 - Setup: T002, T003, T004, T005 can run in parallel (different files).
 - Foundational: T006, T007 in parallel; then T010, T011 in parallel once T006/T007 land.
-- US1: T016 and T017 in parallel (different component files).
-- US2: T024 can be built in parallel with T022/T023 (different files), then wired together in T025.
-- US3: T031 can run in parallel with T030 (different files).
-- Polish: T033, T034, T036 can all run in parallel.
+- US1: T017 and T018 in parallel (different component files). T016 touches the same file as T015 (`lib/suppliers/service.ts`), so it runs after T015, not parallel to it.
+- US2: T026 can be built in parallel with T024/T025 (different files), then wired together in T027.
+- US3: T033 can run in parallel with T032 (different files).
+- Polish: T035, T036, T039 can all run in parallel.
 
 ---
 
@@ -188,3 +194,4 @@ Task: "Build repeatable ContactFields sub-form in components/suppliers/contact-f
 - Each user story phase ends at a checkpoint where that story is independently demoable.
 - Commit after each task or logical group, matching the project's small-diff convention.
 - No dedicated test-writing tasks were generated since spec.md did not request TDD; add them ad hoc using the Vitest/Firestore Emulator stack from research.md if desired later.
+- Known remaining gaps from `/sp.analyze` not addressed here (documented, not blocking): FR-008's "no hard delete" constraint has no explicit negative-test/review task (G3); FR-015's timestamp *display* isn't called out explicitly in T022's wording, only timestamp *recording* in T012 (U1).
