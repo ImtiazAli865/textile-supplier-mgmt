@@ -1,0 +1,32 @@
+# Quickstart: Raw Material Purchases
+
+**Feature**: `002-raw-material-purchases` | **Date**: 2026-09-10
+
+Extends the app already scaffolded for 001-supplier-directory — no new environment variables or infrastructure. Uses the same Firebase project (Firestore + Auth) and the same local dev setup.
+
+## Prerequisites
+
+- Everything from [001's quickstart.md](../001-supplier-directory/quickstart.md) (Node.js 20+, Firebase project, Firebase CLI/Emulator) already set up.
+- At least one **active** supplier already exists in the Supplier Directory (001) — purchases cannot be created without one.
+
+## Local development
+
+```bash
+npm install
+firebase emulators:start --only firestore,auth   # in one terminal
+npm run dev                                       # in another
+```
+
+## Manual verification flow (matches spec acceptance scenarios)
+
+1. Sign in with a staff test account.
+2. **Record & view** (User Story 1): Go to "Add Purchase", select an existing active supplier, enter a purchase date (today or earlier), weight (kg), and rate per kg → confirm it saves with an auto-calculated total cost and appears at the top of the purchase list. Open its detail view → confirm supplier, date, weight, rate, total cost, and remaining weight all match what was entered. Submit again with no supplier selected, or with weight/rate ≤ 0 → confirm a validation error and nothing is saved.
+3. **Search, filter, totals** (User Story 2): With several purchases seeded across suppliers and dates, filter by a single supplier → confirm only its purchases show and totals (kg, cost) match just those. Apply a date range → confirm the list and totals narrow accordingly. Combine both filters. Pick a filter combination matching nothing → confirm an explicit empty state with zeroed totals.
+4. **Edit & delete** (User Story 3): Open an unconsumed purchase, edit its weight and rate, save → confirm the total cost and remaining weight update to match. Delete an unconsumed purchase → confirm it's removed from the list and totals. To verify the lock (FR-010) without waiting for the future Production Batches feature, manually reduce a test document's `remainingWeightKg` below its `weightKg` in the Firestore Emulator UI, then confirm the app blocks editing and deleting that record with a clear message.
+
+## Tests
+
+```bash
+npm run test          # Vitest unit tests (schema + service functions) — once wired in, per research.md
+npm run test:integration  # Server Actions against the Firestore Emulator
+```

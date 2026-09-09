@@ -15,6 +15,14 @@
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "materials", "arrayConfig": "CONTAINS" }
       ]
+    },
+    {
+      "collectionGroup": "rawMaterialPurchases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "supplierId", "order": "ASCENDING" },
+        { "fieldPath": "purchaseDate", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
