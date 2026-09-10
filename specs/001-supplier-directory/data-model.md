@@ -40,7 +40,7 @@ One document per Supplier. Path: `suppliers/{supplierId}` (auto-generated ID).
 Firestore composite indexes needed to satisfy FR-010/FR-011 (filter by status + material together):
 
 - `status` (ASC) + `companyNameLower` (ASC) — default list view, active suppliers sorted by name.
-- `status` (ASC) + `materials` (ARRAY_CONTAINS) — status + single material filter combination (Firestore auto-suggests/creates this on first query if not predefined; declared explicitly in `firestore.indexes.json` to avoid a runtime error on first use in production).
+- `materials` (ARRAY_CONTAINS) + `status` (ASC) + `companyNameLower` (ASC) — status + material filter combined with the `orderBy("companyNameLower")` that `listSuppliers` always applies. **Corrected during 002's live Firebase testing**: the original 2-field version of this index (`status` + `materials` only) was insufficient — the query orders by `companyNameLower` regardless of whether a material filter is present, so all three fields are required together.
 
 No index needed for the name-search itself — that's done in-memory per the research.md decision (Firestore can't index for substring search).
 

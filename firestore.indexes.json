@@ -12,8 +12,9 @@
       "collectionGroup": "suppliers",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "materials", "arrayConfig": "CONTAINS" },
         { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "materials", "arrayConfig": "CONTAINS" }
+        { "fieldPath": "companyNameLower", "order": "ASCENDING" }
       ]
     },
     {
