@@ -1,12 +1,12 @@
 // Verifies SC-004 ("purchase list search/filter renders in <2s at 1,000
 // records") and SC-003 ("running totals update with no perceptible delay,
-// <2s") for the in-memory portions of listPurchases() — the supplier-name
-// join and totals summation over already-fetched documents (see research.md's
-// "fetch-and-sum" decision). Firestore's own indexed supplierId+purchaseDate
-// query latency at this scale is covered by the composite index in
-// firestore.indexes.json (T025), not by this script: running it against a
-// live Firestore instance requires either the Java-based emulator (not
-// available in this environment) or real project credentials.
+// <2s") for the in-memory totals-summation step listPurchases() still does
+// after fetching its (already supplier_id+purchase_date-indexed, per
+// supabase/migrations/0001_init.sql) filtered result set from Postgres. The
+// supplier-name join itself is now a single SQL JOIN, not an in-memory step —
+// this script only sanity-checks that summing the fetched rows stays fast at
+// this record count; real query latency needs a live Supabase project to
+// measure, which isn't available in this environment.
 //
 // Run: node scripts/verify-purchase-list-performance.mjs
 

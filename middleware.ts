@@ -1,25 +1,50 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { SESSION_COOKIE_NAME } from "@/lib/auth/constants";
+import { createServerClient } from "@supabase/ssr";
 
 /**
- * Lightweight presence check only (Edge runtime can't run firebase-admin,
- * which needs Node.js APIs). This just keeps signed-out staff from ever
- * loading a dashboard page. The real authorization boundary is server-side:
- * every Server Component/Action calls requireCurrentUser(), which verifies
- * the cookie's signature/expiry via the Admin SDK and rejects it if invalid.
+ * Refreshes the Supabase session cookie on every matched request and
+ * redirects signed-out staff to /login before any dashboard page loads.
+ * getUser() re-validates the token against Supabase Auth (not just a cookie
+ * presence check), unlike the previous Firebase middleware, which could only
+ * check for a cookie's existence because firebase-admin can't run here.
  */
-export function middleware(request: NextRequest) {
-  const sessionCookie = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+export async function middleware(request: NextRequest) {
+  let response = NextResponse.next({ request });
 
-  if (!sessionCookie) {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) {
+    throw new Error(
+      "Missing Supabase credentials. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY."
+    );
+  }
+
+  const supabase = createServerClient(url, anonKey, {
+    cookies: {
+      getAll() {
+        return request.cookies.getAll();
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
+        response = NextResponse.next({ request });
+        cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+      },
+    },
+  });
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
     const loginUrl = new URL("/login", request.url);
     loginUrl.searchParams.set("next", request.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  return response;
 }
 
 export const config = {
-  matcher: ["/suppliers/:path*"],
+  matcher: ["/suppliers/:path*", "/purchases/:path*"],
 };

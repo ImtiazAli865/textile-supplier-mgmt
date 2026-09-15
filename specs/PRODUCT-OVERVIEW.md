@@ -86,7 +86,9 @@ later modules build on an already-reviewed, tested data model:
 - **Product type catalog** (name, yield ratio, labour rate, default price) is shared
   reference data needed starting with Production Batches (003) — it does not need to
   exist for 002, but 002's supplier/material linkage should stay compatible with it.
-- **Tech stack**: Next.js + Firestore + Firebase Auth, deployed on Vercel (consistent
-  with 001-supplier-directory).
+- **Tech stack**: Next.js + Supabase (Postgres + Supabase Auth), deployed on Vercel
+  (switched from Firestore/Firebase Auth on 2026-09-16 — see
+  [ADR-0001](../history/adr/0001-firebase-to-supabase-backend.md) — after 001 and 002 were
+  already implemented; all modules from here on (003+) are planned directly against Postgres).
 - **Wastage visibility**: any feature touching raw-material-to-packet conversion must
   surface the weight difference/wastage explicitly, not just the converted amount.

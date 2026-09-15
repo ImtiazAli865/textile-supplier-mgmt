@@ -4,8 +4,9 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { signOut } from "@/app/actions/auth";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  // Real authorization boundary: verifies the session cookie's signature and
-  // expiry via the Admin SDK. middleware.ts only checks the cookie is present.
+  // Real authorization boundary: verifies the session against Supabase Auth.
+  // middleware.ts also re-validates on every request, but this is what gates
+  // this specific render.
   const user = await getCurrentUser();
   if (!user) {
     redirect("/login");

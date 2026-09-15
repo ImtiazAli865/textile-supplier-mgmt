@@ -1,6 +1,5 @@
 import "server-only";
-import { Timestamp, type DocumentData, type QueryDocumentSnapshot } from "firebase-admin/firestore";
-import { getAdminDb } from "@/lib/firebase/admin";
+import { getSupabaseAdmin } from "@/lib/supabase/admin";
 import { getSupplier, listSuppliers } from "@/lib/suppliers/service";
 import type {
   Purchase,
@@ -9,39 +8,40 @@ import type {
   PurchaseDetail,
 } from "@/lib/purchases/schema";
 
-const PURCHASES_COLLECTION = "rawMaterialPurchases";
+const PURCHASES_TABLE = "raw_material_purchases";
 
-function purchasesRef() {
-  return getAdminDb().collection(PURCHASES_COLLECTION);
-}
-
-/** Rounds to 2 decimal places — see research.md's "plain rounded numbers" decision. */
+/** Rounds to 2 decimal places — matches the numeric(10,2) column precision. */
 function round2(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function toIsoDateString(value: Timestamp | undefined): string {
-  return value ? value.toDate().toISOString().slice(0, 10) : "";
+interface PurchaseRow {
+  id: string;
+  supplier_id: string;
+  purchase_date: string;
+  weight_kg: number;
+  rate_per_kg: number;
+  total_cost: number;
+  remaining_weight_kg: number;
+  created_at: string;
+  updated_at: string;
+  created_by: string;
+  updated_by: string;
 }
 
-function toIsoString(value: Timestamp | undefined): string {
-  return value ? value.toDate().toISOString() : new Date(0).toISOString();
-}
-
-function toPurchase(doc: QueryDocumentSnapshot<DocumentData>): Purchase {
-  const data = doc.data();
+function toPurchase(row: PurchaseRow): Purchase {
   return {
-    id: doc.id,
-    supplierId: data.supplierId,
-    purchaseDate: toIsoDateString(data.purchaseDate),
-    weightKg: data.weightKg,
-    ratePerKg: data.ratePerKg,
-    totalCost: data.totalCost,
-    remainingWeightKg: data.remainingWeightKg,
-    createdAt: toIsoString(data.createdAt),
-    updatedAt: toIsoString(data.updatedAt),
-    createdBy: data.createdBy,
-    updatedBy: data.updatedBy,
+    id: row.id,
+    supplierId: row.supplier_id,
+    purchaseDate: row.purchase_date,
+    weightKg: row.weight_kg,
+    ratePerKg: row.rate_per_kg,
+    totalCost: row.total_cost,
+    remainingWeightKg: row.remaining_weight_kg,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    createdBy: row.created_by,
+    updatedBy: row.updated_by,
   };
 }
 
@@ -59,7 +59,7 @@ export async function listActiveSuppliersForSelect(): Promise<
 
 export async function createPurchaseRecord(
   input: PurchaseInput,
-  uid: string
+  userId: string
 ): Promise<{ id: string }> {
   const supplier = await getSupplier(input.supplierId);
   if (!supplier || supplier.status !== "active") {
@@ -68,30 +68,38 @@ export async function createPurchaseRecord(
 
   const weightKg = round2(input.weightKg);
   const ratePerKg = round2(input.ratePerKg);
-  const totalCost = round2(weightKg * ratePerKg);
-  const now = Timestamp.now();
 
-  const docRef = await purchasesRef().add({
-    supplierId: input.supplierId,
-    purchaseDate: Timestamp.fromDate(new Date(input.purchaseDate)),
-    weightKg,
-    ratePerKg,
-    totalCost,
-    // Never decremented by this feature — reserved for the future Production
-    // Batches feature (003) to consume. See data-model.md.
-    remainingWeightKg: weightKg,
-    createdAt: now,
-    updatedAt: now,
-    createdBy: uid,
-    updatedBy: uid,
-  });
-  return { id: docRef.id };
+  const { data, error } = await getSupabaseAdmin()
+    .from(PURCHASES_TABLE)
+    .insert({
+      supplier_id: input.supplierId,
+      purchase_date: input.purchaseDate.slice(0, 10),
+      weight_kg: weightKg,
+      rate_per_kg: ratePerKg,
+      // Never decremented by this feature — reserved for the future Production
+      // Batches feature (003) to consume. See data-model.md. total_cost is a
+      // generated column and is never written directly.
+      remaining_weight_kg: weightKg,
+      created_by: userId,
+      updated_by: userId,
+    })
+    .select("id")
+    .single();
+
+  if (error) throw error;
+  return { id: data.id as string };
 }
 
 export async function getPurchase(id: string): Promise<PurchaseDetail | null> {
-  const doc = await purchasesRef().doc(id).get();
-  if (!doc.exists) return null;
-  const purchase = toPurchase(doc as QueryDocumentSnapshot<DocumentData>);
+  const { data, error } = await getSupabaseAdmin()
+    .from(PURCHASES_TABLE)
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) return null;
+
+  const purchase = toPurchase(data as PurchaseRow);
   const supplier = await getSupplier(purchase.supplierId);
   return {
     ...purchase,
@@ -115,48 +123,43 @@ export interface ListPurchasesResult {
 export async function listPurchases(
   filters: ListPurchasesFilters = {}
 ): Promise<ListPurchasesResult> {
-  let query: FirebaseFirestore.Query = purchasesRef();
+  let query = getSupabaseAdmin()
+    .from(PURCHASES_TABLE)
+    .select("*, suppliers(company_name)")
+    .order("purchase_date", { ascending: false });
 
   if (filters.supplierId) {
-    query = query.where("supplierId", "==", filters.supplierId);
+    query = query.eq("supplier_id", filters.supplierId);
   }
   if (filters.dateFrom) {
-    query = query.where("purchaseDate", ">=", Timestamp.fromDate(new Date(filters.dateFrom)));
+    query = query.gte("purchase_date", filters.dateFrom.slice(0, 10));
   }
   if (filters.dateTo) {
-    const end = new Date(filters.dateTo);
-    end.setUTCHours(23, 59, 59, 999);
-    query = query.where("purchaseDate", "<=", Timestamp.fromDate(end));
+    query = query.lte("purchase_date", filters.dateTo.slice(0, 10));
   }
 
-  const snapshot = await query.orderBy("purchaseDate", "desc").get();
-  const purchases = snapshot.docs.map((doc) =>
-    toPurchase(doc as QueryDocumentSnapshot<DocumentData>)
-  );
+  const { data, error } = await query;
+  if (error) throw error;
 
-  // Join supplier names — small result sets at this scale (SC-004), so fetching
-  // each referenced (deduped) supplier individually stays well within budget.
-  // See research.md's live-join decision (no denormalized supplierName field).
-  const supplierIds = Array.from(new Set(purchases.map((p) => p.supplierId)));
-  const supplierEntries = await Promise.all(
-    supplierIds.map(async (id) => [id, await getSupplier(id)] as const)
-  );
-  const supplierNames = new Map(
-    supplierEntries.map(([id, supplier]) => [id, supplier?.companyName ?? "(unknown supplier)"])
-  );
+  type Row = PurchaseRow & { suppliers: { company_name: string } | null };
+  const rows = (data ?? []) as unknown as Row[];
 
-  const listItems: PurchaseListItem[] = purchases.map((p) => ({
-    id: p.id,
-    supplierId: p.supplierId,
-    supplierName: supplierNames.get(p.supplierId) ?? "(unknown supplier)",
-    purchaseDate: p.purchaseDate,
-    weightKg: p.weightKg,
-    ratePerKg: p.ratePerKg,
-    totalCost: p.totalCost,
-  }));
+  const listItems: PurchaseListItem[] = rows.map((row) => {
+    const purchase = toPurchase(row);
+    return {
+      id: purchase.id,
+      supplierId: purchase.supplierId,
+      supplierName: row.suppliers?.company_name ?? "(unknown supplier)",
+      purchaseDate: purchase.purchaseDate,
+      weightKg: purchase.weightKg,
+      ratePerKg: purchase.ratePerKg,
+      totalCost: purchase.totalCost,
+    };
+  });
 
   // Totals computed over the full filtered result set in application code —
-  // see research.md's fetch-and-sum decision.
+  // the set is already fetched for the list itself, and this stays well
+  // within budget at the ~1,000-record scale in SC-004.
   const totals = listItems.reduce(
     (acc, item) => ({
       totalKg: round2(acc.totalKg + item.weightKg),
@@ -171,11 +174,17 @@ export async function listPurchases(
 export async function updatePurchaseRecord(
   id: string,
   input: PurchaseInput,
-  uid: string
+  userId: string
 ): Promise<void> {
-  const doc = await purchasesRef().doc(id).get();
-  if (!doc.exists) throw new PurchaseNotFoundError("Purchase not found");
-  const existing = toPurchase(doc as QueryDocumentSnapshot<DocumentData>);
+  const { data, error: fetchError } = await getSupabaseAdmin()
+    .from(PURCHASES_TABLE)
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (fetchError) throw fetchError;
+  if (!data) throw new PurchaseNotFoundError("Purchase not found");
+
+  const existing = toPurchase(data as PurchaseRow);
   if (existing.remainingWeightKg !== existing.weightKg) {
     throw new PurchaseLockedError(
       "This lot has already been used in production and can no longer be edited"
@@ -194,32 +203,39 @@ export async function updatePurchaseRecord(
 
   const weightKg = round2(input.weightKg);
   const ratePerKg = round2(input.ratePerKg);
-  const totalCost = round2(weightKg * ratePerKg);
 
-  await purchasesRef()
-    .doc(id)
+  const { error } = await getSupabaseAdmin()
+    .from(PURCHASES_TABLE)
     .update({
-      supplierId: input.supplierId,
-      purchaseDate: Timestamp.fromDate(new Date(input.purchaseDate)),
-      weightKg,
-      ratePerKg,
-      totalCost,
+      supplier_id: input.supplierId,
+      purchase_date: input.purchaseDate.slice(0, 10),
+      weight_kg: weightKg,
+      rate_per_kg: ratePerKg,
       // Reset to the new weight — edit is only reachable while unconsumed, so
       // remaining always equals the (possibly updated) full weight again.
-      remainingWeightKg: weightKg,
-      updatedAt: Timestamp.now(),
-      updatedBy: uid,
-    });
+      remaining_weight_kg: weightKg,
+      updated_by: userId,
+    })
+    .eq("id", id);
+  if (error) throw error;
 }
 
 export async function deletePurchaseRecord(id: string): Promise<void> {
-  const doc = await purchasesRef().doc(id).get();
-  if (!doc.exists) throw new PurchaseNotFoundError("Purchase not found");
-  const existing = toPurchase(doc as QueryDocumentSnapshot<DocumentData>);
+  const { data, error: fetchError } = await getSupabaseAdmin()
+    .from(PURCHASES_TABLE)
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+  if (fetchError) throw fetchError;
+  if (!data) throw new PurchaseNotFoundError("Purchase not found");
+
+  const existing = toPurchase(data as PurchaseRow);
   if (existing.remainingWeightKg !== existing.weightKg) {
     throw new PurchaseLockedError(
       "This lot has already been used in production and cannot be deleted"
     );
   }
-  await purchasesRef().doc(id).delete();
+
+  const { error } = await getSupabaseAdmin().from(PURCHASES_TABLE).delete().eq("id", id);
+  if (error) throw error;
 }

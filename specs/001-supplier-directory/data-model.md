@@ -1,48 +1,63 @@
 # Data Model: Supplier Directory
 
-**Feature**: `001-supplier-directory` | **Date**: 2026-09-06
+**Feature**: `001-supplier-directory` | **Date**: 2026-09-06 | **Revised**: 2026-09-16 (Firebase → Supabase, see [ADR-0001](../../history/adr/0001-firebase-to-supabase-backend.md))
 
-Firestore collection layout derived from spec Key Entities and Functional Requirements. See [research.md](./research.md) for the embedding/soft-delete decisions.
+Postgres schema derived from spec Key Entities and Functional Requirements. DDL lives in [`supabase/migrations/0001_init.sql`](../../supabase/migrations/0001_init.sql); this document explains the shape and the FR each part satisfies.
 
-## Collection: `suppliers`
+## Table: `suppliers`
 
-One document per Supplier. Path: `suppliers/{supplierId}` (auto-generated ID).
+One row per Supplier.
 
-| Field | Type | Required | Notes |
+| Column | Type | Required | Notes |
 |---|---|---|---|
-| `companyName` | string | yes | FR-001, FR-002. Display name. |
-| `companyNameLower` | string | yes (derived) | Lowercased copy of `companyName`, maintained on write, used for case-insensitive search (FR-009). |
-| `address` | map | yes | `{ line1: string, line2?: string, city: string, state?: string, postalCode?: string, country: string }`. FR-001. |
-| `materials` | string[] | yes, min 1 | Free-text material/fabric tags, stored lowercased for consistent filtering (FR-001, FR-002, FR-010). |
-| `paymentTerms` | string | yes | Free text, e.g. "Net 30". FR-001. |
-| `status` | `"active" \| "inactive"` | yes | Defaults to `"active"` on create. FR-006, FR-007, FR-011. |
-| `notes` | string | no | Internal free text. Defaults to `""`. FR-012. |
-| `rating` | number (1–5) | no | Omitted field if not set (not `null`, to keep queries simple). FR-012. |
-| `contacts` | Contact[] | yes, min 1 | Embedded array — see Contact shape below. FR-001, FR-002, FR-013. |
-| `createdAt` | Timestamp | yes | Set once on create (server timestamp). FR-015. |
-| `updatedAt` | Timestamp | yes | Set on every write (server timestamp). FR-015. |
-| `createdBy` | string | yes | Firebase Auth `uid` of the creating staff user. |
-| `updatedBy` | string | yes | Firebase Auth `uid` of the last staff user to write. |
+| `id` | `uuid` (PK, default `gen_random_uuid()`) | yes | |
+| `company_name` | `text` | yes | FR-001, FR-002. Display name. |
+| `address_line1` | `text` | yes | FR-001. |
+| `address_line2` | `text` | no | |
+| `address_city` | `text` | yes | |
+| `address_state` | `text` | no | |
+| `address_postal_code` | `text` | no | |
+| `address_country` | `text` | yes | |
+| `payment_terms` | `text` | yes | Free text, e.g. "Net 30". FR-001. |
+| `status` | `text` check `in ('active','inactive')` | yes | Defaults to `'active'`. FR-006, FR-007, FR-011. |
+| `notes` | `text` | no | Defaults to `''`. FR-012. |
+| `rating` | `smallint` check `1–5` | no | `null` if not set. FR-012. |
+| `created_at` / `updated_at` | `timestamptz` | yes | `updated_at` maintained by `trg_suppliers_updated_at`. FR-015. |
+| `created_by` / `updated_by` | `uuid` → `auth.users(id)` | yes | Supabase Auth user id of the staff member. |
 
-### Embedded type: `Contact`
+The address is stored as flat columns (not a nested JSON column) since it has a fixed, non-repeating shape — a normal relational fit. The application-level TypeScript `Address` type still exposes it as a nested object; the service layer maps between the two shapes, so no UI/form code needed to change for this migration.
 
-| Field | Type | Required | Notes |
+There is no `company_name_lower` column: Postgres does case-insensitive search directly (`ILIKE`, or `lower(company_name) = lower($1)` for exact match), backed by the trigram index below, so the Firestore-only workaround column is dropped entirely.
+
+### Table: `supplier_contacts` (1:N)
+
+| Column | Type | Required | Notes |
 |---|---|---|---|
-| `name` | string | yes | FR-013. |
-| `phone` | string | conditionally | Required if `email` absent. FR-002, FR-013. |
-| `email` | string | conditionally | Required if `phone` absent. FR-002, FR-013. |
-| `role` | string | no | Optional title, e.g. "Sales Manager". FR-013. |
+| `id` | `uuid` (PK) | yes | |
+| `supplier_id` | `uuid` → `suppliers(id)` `on delete cascade` | yes | |
+| `position` | `smallint` default `0` | yes | Preserves the order contacts were entered in the form. |
+| `name` | `text` | yes | FR-013. |
+| `phone` | `text` | conditionally | Required if `email` is null. FR-002, FR-013. |
+| `email` | `text` | conditionally | Required if `phone` is null. FR-002, FR-013. |
+| `role` | `text` | no | Optional title, e.g. "Sales Manager". FR-013. |
 
-**Validation rule (enforced in Zod, not Firestore)**: every Contact must have `phone` and/or `email`; a Supplier must have `materials.length >= 1` and `contacts.length >= 1`.
+DB check constraint `supplier_contacts_phone_or_email` enforces phone-or-email at the row level (previously Zod-only); the "at least one contact per supplier" rule (FR-002) stays in the service layer, transactionally enforced on write (a supplier and its contacts are written together).
+
+### Table: `supplier_materials` (1:N tags)
+
+| Column | Type | Required | Notes |
+|---|---|---|---|
+| `supplier_id` | `uuid` → `suppliers(id)` `on delete cascade` | yes | Composite PK with `material`. |
+| `material` | `text` | yes | Free-text tag, stored lowercased (same normalization the Firestore version applied). FR-001, FR-002, FR-010. |
+
+Replaces Firestore's embedded `materials: string[]` field with a proper join table — this also gives a straightforward `SELECT DISTINCT material FROM supplier_materials` query for the "suggestions from previously used values" behavior (spec Assumptions), which required scanning documents in the old model.
 
 ## Indexes
 
-Firestore composite indexes needed to satisfy FR-010/FR-011 (filter by status + material together):
-
-- `status` (ASC) + `companyNameLower` (ASC) — default list view, active suppliers sorted by name.
-- `materials` (ARRAY_CONTAINS) + `status` (ASC) + `companyNameLower` (ASC) — status + material filter combined with the `orderBy("companyNameLower")` that `listSuppliers` always applies. **Corrected during 002's live Firebase testing**: the original 2-field version of this index (`status` + `materials` only) was insufficient — the query orders by `companyNameLower` regardless of whether a material filter is present, so all three fields are required together.
-
-No index needed for the name-search itself — that's done in-memory per the research.md decision (Firestore can't index for substring search).
+- `idx_suppliers_status_name (status, lower(company_name))` — default list view: active suppliers sorted by name (FR-011).
+- `idx_suppliers_name_trgm` (GIN, `pg_trgm`) on `lower(company_name)` — case-insensitive substring search (FR-009) and exact-match duplicate detection, both now done as real SQL (`ILIKE '%term%'` / `lower(company_name) = lower($1)`) instead of Firestore's fetch-then-filter-in-memory workaround.
+- `idx_supplier_contacts_supplier (supplier_id, position)` — fetch a supplier's contacts in entry order.
+- `idx_supplier_materials_material (material)` — filter by material/fabric type (FR-010) and suggestion lookups.
 
 ## State Transitions
 
@@ -58,9 +73,9 @@ No index needed for the name-search itself — that's done in-memory per the res
 
 - `active -> inactive`: staff deactivation action (FR-006). No-op if already inactive (edge case in spec).
 - `inactive -> active`: staff reactivation action (FR-007). No-op if already active.
-- No other states; no deletion transition exists (FR-008).
+- No other states; no deletion transition exists (FR-008) — rows are never `DELETE`d by this feature, only their `status` column changes.
 
 ## Derived/computed fields rationale
 
-- `companyNameLower`: Firestore has no case-insensitive comparison operator; storing a lowercased copy lets the default sort and any future prefix-based lookups stay consistent, while the FR-009 substring search itself is done in-memory over already-fetched documents (see research.md).
-- `materials` stored lowercased: keeps the material filter dropdown's equality checks (`array-contains`) consistent regardless of how a value was originally typed.
+- Case-insensitive search/compare: native SQL (`ILIKE`, `lower()`) replaces the Firestore `companyNameLower` derived column entirely — one less field to keep in sync on every write.
+- `supplier_materials.material` stored lowercased: keeps filter equality checks consistent regardless of how a value was originally typed, same rationale as the Firestore version.

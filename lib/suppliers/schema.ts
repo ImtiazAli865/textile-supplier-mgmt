@@ -44,7 +44,6 @@ export type SupplierStatus = z.infer<typeof supplierStatusSchema>;
 /** Full stored record, as returned to Server/Client Components (timestamps as ISO strings). */
 export interface Supplier extends SupplierInput {
   id: string;
-  companyNameLower: string;
   status: SupplierStatus;
   createdAt: string;
   updatedAt: string;

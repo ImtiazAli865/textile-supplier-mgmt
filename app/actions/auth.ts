@@ -1,22 +1,18 @@
 "use server";
 
-import { cookies } from "next/headers";
-import { createSessionCookie } from "@/lib/auth/session";
-import { SESSION_COOKIE_NAME, SESSION_EXPIRES_IN_MS } from "@/lib/auth/constants";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { ActionResult } from "@/lib/actions/result";
 
-export async function createSession(idToken: string): Promise<void> {
-  const sessionCookie = await createSessionCookie(idToken);
-  const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE_NAME, sessionCookie, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: SESSION_EXPIRES_IN_MS / 1000,
-  });
+export async function signIn(email: string, password: string): Promise<ActionResult> {
+  const supabase = await createSupabaseServerClient();
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) {
+    return { success: false, error: "Invalid email or password." };
+  }
+  return { success: true };
 }
 
 export async function signOut(): Promise<void> {
-  const cookieStore = await cookies();
-  cookieStore.delete(SESSION_COOKIE_NAME);
+  const supabase = await createSupabaseServerClient();
+  await supabase.auth.signOut();
 }

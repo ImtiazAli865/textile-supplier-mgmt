@@ -1,11 +1,11 @@
 // Verifies SC-004 ("supplier list search/filter renders in <2s at 500 records")
-// for the in-memory portion of listSuppliers() — the case-insensitive
-// substring filter over already-fetched documents (see research.md's
-// "fetch-and-filter" decision). Firestore's own indexed status/material
-// query latency at this scale is covered by the composite indexes in
-// firestore.indexes.json (T035), not by this script: running it against a
-// live Firestore instance requires either the Java-based emulator (not
-// available in this environment) or real project credentials.
+// for the in-memory substring-filter shape listSuppliers() used to rely on
+// under Firestore. Since the 2026-09-16 Supabase migration, status/material
+// filtering and substring search both run as native SQL (see
+// supabase/migrations/0001_init.sql's indexes), so this script now only
+// sanity-checks that an equivalent JS filter stays fast at this record count
+// — the real query latency at this scale needs a live Supabase project to
+// measure, which isn't available in this environment.
 //
 // Run: node scripts/verify-list-performance.mjs
 

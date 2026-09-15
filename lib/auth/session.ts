@@ -1,33 +1,18 @@
 import "server-only";
-import { cookies } from "next/headers";
-import type { DecodedIdToken } from "firebase-admin/auth";
-import { getAdminAuth } from "@/lib/firebase/admin";
-import { SESSION_COOKIE_NAME, SESSION_EXPIRES_IN_MS } from "@/lib/auth/constants";
-
-export { SESSION_COOKIE_NAME };
-
-export async function createSessionCookie(idToken: string): Promise<string> {
-  return getAdminAuth().createSessionCookie(idToken, { expiresIn: SESSION_EXPIRES_IN_MS });
-}
-
-export async function verifySessionCookie(sessionCookie: string): Promise<DecodedIdToken | null> {
-  try {
-    return await getAdminAuth().verifySessionCookie(sessionCookie, true);
-  } catch {
-    return null;
-  }
-}
+import type { User } from "@supabase/supabase-js";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 /**
- * Reads and verifies the session cookie for the current request. Server
- * Components/Actions use this to get the authenticated staff user; the
- * middleware performs the actual route-gating (see middleware.ts).
+ * Verifies the current request's Supabase Auth session. Server
+ * Components/Actions use this to get the authenticated staff user;
+ * middleware.ts performs the actual route-gating (see middleware.ts).
  */
-export async function getCurrentUser(): Promise<DecodedIdToken | null> {
-  const cookieStore = await cookies();
-  const sessionCookie = cookieStore.get(SESSION_COOKIE_NAME)?.value;
-  if (!sessionCookie) return null;
-  return verifySessionCookie(sessionCookie);
+export async function getCurrentUser(): Promise<User | null> {
+  const supabase = await createSupabaseServerClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user;
 }
 
 export class UnauthenticatedError extends Error {
@@ -37,7 +22,7 @@ export class UnauthenticatedError extends Error {
   }
 }
 
-export async function requireCurrentUser(): Promise<DecodedIdToken> {
+export async function requireCurrentUser(): Promise<User> {
   const user = await getCurrentUser();
   if (!user) throw new UnauthenticatedError();
   return user;

@@ -2,9 +2,7 @@
 
 import { Suspense, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { getClientAuth } from "@/lib/firebase/client";
-import { createSession } from "@/app/actions/auth";
+import { signIn } from "@/app/actions/auth";
 
 function LoginForm() {
   const router = useRouter();
@@ -20,13 +18,13 @@ function LoginForm() {
     setIsSubmitting(true);
 
     try {
-      const credential = await signInWithEmailAndPassword(getClientAuth(), email, password);
-      const idToken = await credential.user.getIdToken();
-      await createSession(idToken);
+      const result = await signIn(email, password);
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
       router.push(searchParams.get("next") ?? "/suppliers");
       router.refresh();
-    } catch {
-      setError("Invalid email or password.");
     } finally {
       setIsSubmitting(false);
     }

@@ -1,33 +1,35 @@
 # Implementation Plan: Supplier Directory
 
-**Branch**: `001-supplier-directory` | **Date**: 2026-09-06 | **Spec**: [spec.md](./spec.md)
+**Branch**: `001-supplier-directory` | **Date**: 2026-09-06 | **Revised**: 2026-09-16 | **Spec**: [spec.md](./spec.md)
 **Input**: Feature specification from `/specs/001-supplier-directory/spec.md`
+
+> **2026-09-16 revision**: Backend swapped from Firestore/Firebase Auth to Supabase (Postgres + Supabase Auth) per [ADR-0001](../../history/adr/0001-firebase-to-supabase-backend.md). Business rules and user-facing behavior are unchanged; this plan now describes the Postgres/Supabase implementation. The original Firestore-based plan is preserved in git history at the commit implementing this feature (`c028944`).
 
 ## Summary
 
-Internal staff need a central, searchable directory of textile suppliers, replacing spreadsheets. Build it as a single Next.js (App Router, TypeScript) app: Server Components read supplier data from Firestore via the Admin SDK, Server Actions handle create/update/deactivate/reactivate, and Firebase Auth (session cookie) gates every route. Name search and material/status filtering are done by fetching the (small, ≤500-record) active/inactive supplier set and filtering in-memory, avoiding the need for a separate search index at this scale. See [research.md](./research.md) for the full rationale behind each choice.
+Internal staff need a central, searchable directory of textile suppliers, replacing spreadsheets. Built as a single Next.js (App Router, TypeScript) app: Server Components read supplier data from Postgres via a server-only Supabase client (service-role key), Server Actions handle create/update/deactivate/reactivate, and Supabase Auth (cookie-based session, via `@supabase/ssr`) gates every route. Name search and material/status filtering are done as native SQL (`ILIKE`, indexed joins) rather than Firestore's fetch-and-filter-in-memory workaround. See [data-model.md](./data-model.md) for the schema and [ADR-0001](../../history/adr/0001-firebase-to-supabase-backend.md) for why.
 
 ## Technical Context
 
 **Language/Version**: TypeScript 5.x, Node.js 20+
-**Primary Dependencies**: Next.js 14+ (App Router), React 18+, `firebase-admin`, `firebase` (Auth client only), `zod`, `react-hook-form`, Tailwind CSS
-**Storage**: Firestore — single `suppliers` collection (see [data-model.md](./data-model.md))
-**Testing**: Vitest + Testing Library (unit/integration), Firestore Emulator for integration tests
+**Primary Dependencies**: Next.js 16 (App Router), React 19, `@supabase/supabase-js`, `@supabase/ssr`, `zod`, `react-hook-form`, Tailwind CSS
+**Storage**: Supabase Postgres — `suppliers`, `supplier_contacts`, `supplier_materials` tables (see [data-model.md](./data-model.md))
+**Testing**: Vitest + Testing Library (unit/integration) — not yet wired into `package.json`, same as before the migration
 **Target Platform**: Web, deployed to Vercel
 **Project Type**: Single Next.js app (web) — no separate backend service
-**Performance Goals**: Supplier list search/filter renders in <2s at 500 records (SC-004)
-**Constraints**: No client-side Firestore access — all reads/writes go through the server (Admin SDK); Admin credentials never shipped to the browser
+**Performance Goals**: Supplier list search/filter renders in <2s at 500 records (SC-004) — easier to hold now that search/filter are indexed SQL instead of in-memory scans
+**Constraints**: No client-side Postgres access — all reads/writes go through the server using the Supabase service-role key; that key never ships to the browser (mirrors the old "no client Firestore access" constraint)
 **Scale/Scope**: Single internal business, up to ~500 supplier records, no multi-tenancy, no role hierarchy (spec Assumptions)
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-`.specify/memory/constitution.md` is still the unfilled template for this project — no ratified principles exist yet to gate against. Proceeding under the project's default guardrails instead (smallest viable diff, no speculative abstraction, testable increments per user story), all of which this plan already follows: three independently-shippable user stories, no premature search-index infrastructure, no client Firestore access to avoid a second authorization surface.
+`.specify/memory/constitution.md` is still the unfilled template for this project — no ratified principles exist yet to gate against. Proceeding under the project's default guardrails instead (smallest viable diff, no speculative abstraction, testable increments per user story).
 
-📋 **Note**: Adopting Next.js Server Actions + Firestore Admin SDK (no public API layer) and in-memory search instead of a search index are both decisions with long-term structural consequences for how every future feature (Purchase Orders, Inventory, Invoicing) will access data. If you want this reasoned about formally: run `/sp.constitution` first to ratify project-wide principles, or `/sp.adr "Server Actions + Firestore Admin SDK for data access"` to record this specific decision. Not required to proceed — flagging per the project's ADR-suggestion policy.
+The Firebase → Supabase backend swap itself is the architecturally significant decision for this revision, and it has been recorded as [ADR-0001](../../history/adr/0001-firebase-to-supabase-backend.md) (accepted 2026-09-16) — superseding the original plan's flagged-but-undocumented "Server Actions + Firestore Admin SDK" note.
 
-*Re-checked after Phase 1 design (data-model.md, contracts/server-actions.md, quickstart.md): no new violations introduced. The design stays within a single Next.js project with no additional services.*
+*Re-checked after Phase 1 design (data-model.md, contracts/server-actions.md): no new violations introduced. The design stays within a single Next.js project with one additional managed service (Supabase) replacing the previous one (Firebase) — no net increase in the number of services.*
 
 ## Project Structure
 
@@ -36,24 +38,24 @@ Internal staff need a central, searchable directory of textile suppliers, replac
 ```text
 specs/001-supplier-directory/
 ├── plan.md              # This file
-├── research.md          # Phase 0 output
-├── data-model.md        # Phase 1 output
+├── research.md          # Phase 0 output (Firestore-era; superseded by ADR-0001 for storage choice)
+├── data-model.md        # Phase 1 output — now Postgres schema
 ├── quickstart.md         # Phase 1 output
 ├── contracts/
 │   └── server-actions.md # Phase 1 output
-└── tasks.md              # Phase 2 output (/sp.tasks — not created by /sp.plan)
+└── tasks.md              # Phase 2 output (/sp.tasks)
 ```
 
 ### Source Code (repository root)
 
 ```text
-middleware.ts                     # Session-cookie auth gate for (dashboard)/* — MUST live at
+middleware.ts                     # Supabase session refresh + auth gate for (dashboard)/* — MUST live at
                                    # repo root; Next.js does not run middleware placed inside app/
 
 app/
 ├── (auth)/
 │   └── login/
-│       └── page.tsx              # Firebase Auth email/password sign-in
+│       └── page.tsx              # Supabase Auth email/password sign-in (Server Action-driven form)
 ├── (dashboard)/
 │   └── suppliers/
 │       ├── page.tsx              # List + search/filter (Server Component)
@@ -64,33 +66,35 @@ app/
 │           └── edit/
 │               └── page.tsx      # Edit form
 └── actions/
-    └── suppliers.ts              # Server Actions: createSupplier, updateSupplier,
-                                   # setSupplierStatus, listSuppliers, getSupplier,
-                                   # checkDuplicateSupplierName
+    ├── auth.ts                    # Server Actions: signIn, signOut
+    └── suppliers.ts               # Server Actions: createSupplier, updateSupplier,
+                                    # setSupplierStatus, listSuppliers, getSupplier,
+                                    # checkDuplicateSupplierName
 
 lib/
-├── firebase/
-│   ├── client.ts                 # Firebase client SDK init (Auth only)
-│   └── admin.ts                  # firebase-admin init (server-only)
+├── supabase/
+│   ├── server.ts                  # @supabase/ssr server client (cookies-bound) — used for auth only
+│   └── admin.ts                   # supabase-js client with the service-role key (server-only) — all data access
 ├── auth/
-│   └── session.ts                 # Session cookie create/verify helpers
+│   └── session.ts                 # getCurrentUser/requireCurrentUser wrapping Supabase Auth's getUser()
 └── suppliers/
-    ├── schema.ts                  # Zod schemas: Supplier, Contact, SupplierInput
-    └── service.ts                 # Firestore data-access functions used by actions
+    ├── schema.ts                  # Zod schemas: Supplier, Contact, SupplierInput (unchanged shape from Firestore era)
+    └── service.ts                 # Postgres data-access functions used by actions
 
 components/
 └── suppliers/
-    ├── supplier-form.tsx          # Shared create/edit form (react-hook-form + Zod)
-    ├── supplier-list.tsx          # Client component: renders + filters fetched list
-    ├── supplier-filters.tsx       # Search box + material/status filter controls
-    └── contact-fields.tsx         # Repeatable contact sub-form
-
+    ├── supplier-form.tsx          # Shared create/edit form (react-hook-form + Zod) — unchanged
+    ├── supplier-list.tsx          # Client component: renders + filters fetched list — unchanged
+    ├── supplier-filters.tsx       # Search box + material/status filter controls — unchanged
+    └── contact-fields.tsx         # Repeatable contact sub-form — unchanged
 ```
 
-**Testing note**: No `tests/` tree is scaffolded by tasks.md for this feature (spec.md did not request TDD, per Task Generation Rules). When automated tests are added later, they belong at `tests/unit/suppliers/{schema,service}.test.ts` and `tests/integration/actions/suppliers.test.ts`, using the Vitest + Firestore Emulator stack already chosen in research.md.
+`components/` and `lib/*/schema.ts` needed no structural changes for this migration — the API-level TypeScript shapes returned by the service layer are unchanged, only how they're produced (SQL vs. Firestore reads) changed. This confirms the original three-layer separation (`schema.ts` / `service.ts` / Server Actions / components) paid for itself: swapping the backend touched `service.ts`, `lib/supabase/*`, `lib/auth/*`, and `middleware.ts` only.
 
-**Structure Decision**: Single Next.js application (Option 1 shape, web variant) — no separate `backend/`/`frontend/` split, since Server Components/Actions in the same app play both roles. This matches the "Single project" default in the plan template and avoids the complexity of a second deployable for an internal tool with one client.
+**Testing note**: No `tests/` tree is scaffolded by tasks.md for this feature (unchanged from the Firestore-era plan). When automated tests are added later, they belong at `tests/unit/suppliers/{schema,service}.test.ts` and `tests/integration/actions/suppliers.test.ts`, run against a real (test) Supabase project or `supabase start`'s local Postgres rather than an emulator.
+
+**Structure Decision**: Single Next.js application (Option 1 shape, web variant) — unchanged from the original plan.
 
 ## Complexity Tracking
 
-No constitution gates are defined yet (template unfilled), so there is nothing to justify a deviation against. No additional projects, services, or indirection layers beyond the single Next.js app were introduced.
+No constitution gates are defined yet (template unfilled), so there is nothing to justify a deviation against. The backend swap replaces one managed service (Firebase) with another (Supabase) — no net increase in the number of services or deployables.

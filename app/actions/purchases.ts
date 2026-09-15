@@ -16,7 +16,7 @@ export async function createPurchase(
   try {
     const user = await requireCurrentUser();
     const parsed = purchaseInputSchema.parse(input);
-    const { id } = await createPurchaseRecord(parsed, user.uid);
+    const { id } = await createPurchaseRecord(parsed, user.id);
     revalidatePath("/purchases");
     return { success: true, data: { id } };
   } catch (error) {
@@ -28,7 +28,7 @@ export async function updatePurchase(id: string, input: PurchaseInput): Promise<
   try {
     const user = await requireCurrentUser();
     const parsed = purchaseInputSchema.parse(input);
-    await updatePurchaseRecord(id, parsed, user.uid);
+    await updatePurchaseRecord(id, parsed, user.id);
     revalidatePath("/purchases");
     revalidatePath(`/purchases/${id}`);
     return { success: true };

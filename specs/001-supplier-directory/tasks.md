@@ -203,3 +203,16 @@ Task: "Build repeatable ContactFields sub-form in components/suppliers/contact-f
 - **`middleware.ts` deprecation**: Next.js 16.3.4 (installed by the scaffold, satisfying plan.md's "14+") deprecated the `middleware.ts` convention in favor of `proxy.ts`. It still works (build succeeds, only a warning), so it was left as-is rather than guessing at the new convention's exact API without documentation access. Migrate later with `npx @next/codemod@canary middleware-to-proxy .` once the working tree is clean.
 - **Lazy Firebase singletons**: both `lib/firebase/admin.ts` and `lib/firebase/client.ts` were implemented with lazy-initialized singletons (not eager top-level `const`s as plan.md's structure sketch might imply) — eager initialization crashed `next build` (page-data collection and static prerendering both execute module code without real env vars present).
 - `npm audit` reports 8 moderate-severity advisories in transitive dependencies (not run through `audit fix` — no breaking-change upgrade was requested).
+
+## Migration Tasks (2026-09-16: Firebase → Supabase, [ADR-0001](../../history/adr/0001-firebase-to-supabase-backend.md))
+
+Backend swap, not a requirements change — see plan.md's 2026-09-16 revision note. All tasks below replace/retire the Firebase-era T-numbered tasks' *implementation*, not the FRs they satisfy.
+
+- [X] M001 Write `supabase/migrations/0001_init.sql`: `suppliers`, `supplier_contacts`, `supplier_materials` tables, indexes, `updated_at` trigger, RLS enabled (deny-by-default)
+- [X] M002 Replace `lib/firebase/{admin,client}.ts` with `lib/supabase/{admin,server}.ts`
+- [X] M003 Rewrite `lib/auth/session.ts`, `middleware.ts`, `app/actions/auth.ts`, `app/(auth)/login/page.tsx` for Supabase Auth (email/password, `@supabase/ssr` cookie session)
+- [X] M004 Rewrite `lib/suppliers/service.ts` for Postgres (insert/update supplier + contacts + materials in one transaction via an RPC/multi-step write; `ILIKE` search; join-based list/get)
+- [X] M005 Drop `companyNameLower` from `lib/suppliers/schema.ts`'s `Supplier` type (no longer needed — Postgres does case-insensitive comparison natively)
+- [X] M006 Update `package.json`: remove `firebase`/`firebase-admin`, add `@supabase/supabase-js`/`@supabase/ssr`
+- [X] M007 Delete `lib/firebase/`, `firebase.json`, `.firebaserc`, `firestore.indexes.json`, `firestore.rules`; update `.env.local.example`
+- [X] M008 Ran `supabase/migrations/0001_init.sql` against the live Supabase project (`zsvdrskitwcmqbnaltgx`) and verified the quickstart.md flow end-to-end via browser automation against real credentials: sign-in (Supabase Auth), create/list/search/material-filter/status-filter/edit/deactivate/reactivate a supplier — all confirmed against live Postgres on 2026-09-16.

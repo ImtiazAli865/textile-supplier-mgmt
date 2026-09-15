@@ -22,7 +22,7 @@ export async function createSupplier(input: SupplierInput): Promise<ActionResult
   try {
     const user = await requireCurrentUser();
     const parsed = supplierInputSchema.parse(input);
-    const { id } = await createSupplierRecord(parsed, user.uid);
+    const { id } = await createSupplierRecord(parsed, user.id);
     revalidatePath("/suppliers");
     return { success: true, data: { id } };
   } catch (error) {
@@ -34,7 +34,7 @@ export async function updateSupplier(id: string, input: SupplierInput): Promise<
   try {
     const user = await requireCurrentUser();
     const parsed = supplierInputSchema.parse(input);
-    await updateSupplierRecord(id, parsed, user.uid);
+    await updateSupplierRecord(id, parsed, user.id);
     revalidatePath("/suppliers");
     revalidatePath(`/suppliers/${id}`);
     return { success: true };
@@ -46,7 +46,7 @@ export async function updateSupplier(id: string, input: SupplierInput): Promise<
 export async function setSupplierStatus(id: string, status: SupplierStatus): Promise<ActionResult> {
   try {
     const user = await requireCurrentUser();
-    await setSupplierStatusRecord(id, status, user.uid);
+    await setSupplierStatusRecord(id, status, user.id);
     revalidatePath("/suppliers");
     revalidatePath(`/suppliers/${id}`);
     return { success: true };
