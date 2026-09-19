@@ -5,9 +5,10 @@ import { useState, useTransition } from "react";
 
 interface PurchaseFiltersProps {
   suppliers: { id: string; companyName: string }[];
+  tradedProducts: { id: string; name: string }[];
 }
 
-export function PurchaseFilters({ suppliers }: PurchaseFiltersProps) {
+export function PurchaseFilters({ suppliers, tradedProducts }: PurchaseFiltersProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -38,6 +39,19 @@ export function PurchaseFilters({ suppliers }: PurchaseFiltersProps) {
         {suppliers.map((s) => (
           <option key={s.id} value={s.id}>
             {s.companyName}
+          </option>
+        ))}
+      </select>
+
+      <select
+        defaultValue={searchParams.get("productId") ?? ""}
+        onChange={(e) => updateParam("productId", e.target.value)}
+        className="rounded border border-zinc-300 px-3 py-1.5 text-sm"
+      >
+        <option value="">All products</option>
+        {tradedProducts.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
           </option>
         ))}
       </select>

@@ -40,6 +40,7 @@ interface ProductRow {
   expected_yield_per_kg: number | null;
   default_labour_rate_per_packet: number | null;
   current_purchase_cost: number | null;
+  quantity_on_hand: number;
   status: ProductStatus;
   created_at: string;
   updated_at: string;
@@ -58,6 +59,7 @@ function toProduct(row: ProductRow): Product {
     expectedYieldPerKg: row.expected_yield_per_kg,
     defaultLabourRatePerPacket: row.default_labour_rate_per_packet,
     currentPurchaseCost: row.current_purchase_cost,
+    quantityOnHand: row.quantity_on_hand,
     status: row.status,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -154,6 +156,14 @@ export async function listProducts(
     defaultSellingPrice: row.default_selling_price as number,
     status: row.status as ProductStatus,
   }));
+}
+
+/** Thin wrapper over listProducts — reused, not reimplemented, per research.md (003b). */
+export async function listActiveTradedProductsForSelect(): Promise<
+  { id: string; name: string; stockUom: string }[]
+> {
+  const products = await listProducts({ type: "traded", status: "active" });
+  return products.map(({ id, name, stockUom }) => ({ id, name, stockUom }));
 }
 
 export async function updateProductRecord(

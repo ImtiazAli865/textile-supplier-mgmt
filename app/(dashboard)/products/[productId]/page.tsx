@@ -70,16 +70,24 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
             </section>
           </>
         ) : (
-          <section>
-            <h2 className="mb-1 text-sm font-medium text-zinc-500">
-              Current purchase cost (weighted average)
-            </h2>
-            <p className="text-sm text-zinc-900">
-              {product.currentPurchaseCost !== null
-                ? `Rs ${product.currentPurchaseCost.toFixed(2)}`
-                : "Not yet established"}
-            </p>
-          </section>
+          <>
+            <section>
+              <h2 className="mb-1 text-sm font-medium text-zinc-500">
+                Current purchase cost (weighted average)
+              </h2>
+              <p className="text-sm text-zinc-900">
+                {product.currentPurchaseCost !== null
+                  ? `Rs ${product.currentPurchaseCost.toFixed(2)}`
+                  : "Not yet established"}
+              </p>
+            </section>
+            <section>
+              <h2 className="mb-1 text-sm font-medium text-zinc-500">Quantity on hand</h2>
+              <p className="text-sm text-zinc-900">
+                {product.quantityOnHand.toFixed(2)} {product.stockUom}
+              </p>
+            </section>
+          </>
         )}
 
         <section className="border-t border-zinc-100 pt-3 text-xs text-zinc-400">

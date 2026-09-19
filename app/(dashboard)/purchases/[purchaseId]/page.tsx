@@ -29,29 +29,61 @@ export default async function PurchaseDetailPage({ params }: PurchaseDetailPageP
           <p className="text-sm text-zinc-900">{purchase.purchaseDate}</p>
         </section>
 
-        <section>
-          <h2 className="mb-1 text-sm font-medium text-zinc-500">Weight purchased</h2>
-          <p className="text-sm text-zinc-900">{purchase.weightKg.toFixed(2)} kg</p>
-        </section>
+        {purchase.mode === "weight" ? (
+          <>
+            <section>
+              <h2 className="mb-1 text-sm font-medium text-zinc-500">Weight purchased</h2>
+              <p className="text-sm text-zinc-900">{purchase.weightKg!.toFixed(2)} kg</p>
+            </section>
 
-        <section>
-          <h2 className="mb-1 text-sm font-medium text-zinc-500">Rate per kg</h2>
-          <p className="text-sm text-zinc-900">Rs {purchase.ratePerKg.toFixed(2)}</p>
-        </section>
+            <section>
+              <h2 className="mb-1 text-sm font-medium text-zinc-500">Rate per kg</h2>
+              <p className="text-sm text-zinc-900">Rs {purchase.ratePerKg!.toFixed(2)}</p>
+            </section>
 
-        <section>
-          <h2 className="mb-1 text-sm font-medium text-zinc-500">Total cost</h2>
-          <p className="text-sm text-zinc-900">Rs {purchase.totalCost.toFixed(2)}</p>
-        </section>
+            <section>
+              <h2 className="mb-1 text-sm font-medium text-zinc-500">Total cost</h2>
+              <p className="text-sm text-zinc-900">Rs {purchase.totalCost.toFixed(2)}</p>
+            </section>
 
-        <section>
-          <h2 className="mb-1 text-sm font-medium text-zinc-500">Remaining (unused) weight</h2>
-          <p className="text-sm text-zinc-900">{purchase.remainingWeightKg.toFixed(2)} kg</p>
-        </section>
+            <section>
+              <h2 className="mb-1 text-sm font-medium text-zinc-500">Remaining (unused) weight</h2>
+              <p className="text-sm text-zinc-900">{purchase.remainingWeightKg!.toFixed(2)} kg</p>
+            </section>
+          </>
+        ) : (
+          <>
+            <section>
+              <h2 className="mb-1 text-sm font-medium text-zinc-500">Product</h2>
+              <p className="text-sm text-zinc-900">{purchase.productName}</p>
+            </section>
+
+            <section>
+              <h2 className="mb-1 text-sm font-medium text-zinc-500">Quantity purchased</h2>
+              <p className="text-sm text-zinc-900">{purchase.quantityUnits!.toFixed(2)}</p>
+            </section>
+
+            <section>
+              <h2 className="mb-1 text-sm font-medium text-zinc-500">Rate per unit</h2>
+              <p className="text-sm text-zinc-900">Rs {purchase.ratePerUnit!.toFixed(2)}</p>
+            </section>
+
+            <section>
+              <h2 className="mb-1 text-sm font-medium text-zinc-500">Total cost</h2>
+              <p className="text-sm text-zinc-900">Rs {purchase.totalCost.toFixed(2)}</p>
+            </section>
+
+            <section>
+              <h2 className="mb-1 text-sm font-medium text-zinc-500">Remaining (unused) quantity</h2>
+              <p className="text-sm text-zinc-900">{purchase.remainingUnits!.toFixed(2)}</p>
+            </section>
+          </>
+        )}
 
         {purchase.isLocked && (
           <p className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-            This lot has already been used in production, so it can no longer be edited or
+            This {purchase.mode === "weight" ? "lot" : "purchase"} has already been used
+            {purchase.mode === "weight" ? " in production" : ""}, so it can no longer be edited or
             deleted.
           </p>
         )}

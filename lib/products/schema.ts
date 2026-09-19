@@ -68,8 +68,10 @@ export interface Product {
   expectedYieldPerKg: number | null;
   defaultLabourRatePerPacket: number | null;
   /** Weighted-average purchase cost — derived, read-only. Always null for manufactured
-   * products; null for traded products until a future purchasing feature populates it. */
+   * products; null for traded products until at least one per-unit purchase exists. */
   currentPurchaseCost: number | null;
+  /** Derived, read-only. Maintained by traded-goods purchasing (003b) for traded products. */
+  quantityOnHand: number;
   status: ProductStatus;
   createdAt: string;
   updatedAt: string;
