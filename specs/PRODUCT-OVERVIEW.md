@@ -1,7 +1,7 @@
-# Product Overview: Textile Trading, Production & Sales Management
+# Product Overview: MA Textile — Trading, Contract Manufacturing & Customer Billing
 
 **Status**: Living document — updated as business scope evolves
-**Last Updated**: 2026-09-10
+**Last Updated**: 2026-09-20
 
 This document captures the overall business context and module roadmap for the system.
 Individual features are specified, planned, and implemented one at a time under
@@ -9,86 +9,340 @@ Individual features are specified, planned, and implemented one at a time under
 (spec → plan → tasks → implement). This file is the shared context those features draw
 from — it is not itself a feature spec, and it does not replace `/sp.specify` for any module.
 
+This revision supersedes the previous version of this document in full. It reflects the
+consolidated master specification agreed with the business owner on 2026-09-20 (recorded
+verbatim in `history/prompts/general/0013-ma-textile-master-spec-build-order-review.general.prompt.md`),
+including the resolved build-order questions and open points below.
+
+## Glossary
+
+| Term | Meaning |
+|---|---|
+| **PO (Purchase Order)** | A written order **issued by a customer to this business**. Always an incoming customer order — never this business's own purchases from suppliers (those are "purchases", per 002). |
+| **Challan** | A delivery note printed and sent with goods; the customer's receiving staff sign it as proof of receipt. |
+| **Performa Invoice** | A billing document this business issues to certain customers (currently only Habbitt) after delivery. |
+| **Sales Tax Invoice / GST Invoice** | A formal tax invoice prepared by an external accountant, not by this system — stored only as an attachment. |
+| **Lot** | A single raw-material purchase (e.g. 3,000 kg of fabric bought at one rate) — the unit production draws from. |
+| **Packet** | One finished, packaged sellable unit (e.g. one 6-Pack Washcloth pack). |
+| **Khata / Ledger** | A running Debit / Credit / Balance account, kept per customer and per contractor. |
+| **Trade name** | One of the business's several billing identities (Global Distributors, M Zayan Impex, etc.), each with its own letterhead and NTN. |
+
 ## Business Model
 
-The business runs three connected revenue streams:
+The business supplies large retail chains in Karachi, Pakistan, through **two distinct
+revenue streams**:
 
-1. **Trading** — Purchase finished/semi-finished items from market suppliers and resell to
-   customers (primary customer: Habitt) with a profit margin.
-2. **Contract Manufacturing (commission-based)** — Raw material (e.g. fabric/cloth) is
-   purchased by weight (kg) from suppliers and handed to a manufacturing contractor who
-   converts it into finished packaged products. The contractor is paid a fixed rate per
-   packet produced (e.g. Rs 6/packet); the contractor may sub-contract to home workers at a
-   lower rate (e.g. Rs 5/packet), keeping the difference as their own commission. The
-   business only tracks what it pays the contractor in total and the contractor's
-   commission for reference — sub-worker payments are out of scope.
-3. **Sales** — Finished packets are sold to customers (Habitt and possibly others) at a
-   per-packet price (e.g. Rs 120/packet).
+1. **Trading (buy and resell)** — items purchased from the market and resold to the
+   customer at a margin, no manufacturing. Example: **Habbitt** (legal entity: Universal
+   Retail (PVT) LTD), billed under trade name "Global Distributors" or "IBL Frontier
+   Market". Bought per unit (yd, PAC, PAA, Units), resold at a markup.
+   **Profit = Selling price − Purchase cost.**
 
-## Key Workflow: Raw Material → Production Batch → Sales
+2. **Contract manufacturing (buy fabric by weight, manufacture, sell)** — raw fabric is
+   purchased **by weight (kg)** and handed to a manufacturing contractor who converts it
+   into finished, packaged products. The contractor is paid a fixed rate per packet (e.g.
+   Rs 6/packet); they sub-contract to home workers at a lower rate (e.g. Rs 5/packet),
+   keeping the difference as their own commission. The business tracks what it pays the
+   contractor and, for reference only, the contractor's commission margin — never
+   sub-workers' individual payments. Customers: **Chaseup** ("M Zayan Impex"),
+   **ChaseValue** ("M.A Textile"), **Kifayat** ("Rashid Towel"). Products (data-driven,
+   never hardcoded): 6-Pack Washcloth, 4-Pack Washcloth, 10-Pack Roll, 10-Pack Ribbon, etc.
+   **Profit = Sales Revenue − Raw material cost − Labour/commission cost.**
 
-A raw material lot (e.g. 3,000 kg) is purchased for a total cost. From this lot, packets
-are produced, but only part of the weight actually converts into sellable packets (e.g.
-2,900 kg worth) — the difference (100 kg) is wastage/loss that must be tracked and visible.
+### Worked example — the core Stream B calculation
 
-Each product type has its own **kg-to-packet yield ratio** (e.g. 1 kg → 8–10 packets,
-varies by product). For every production batch, the system must calculate:
+A 3,000 kg lot is bought for Rs 200,000 (Rs 66.67/kg). Only ~2,900 kg actually converts
+into sellable packets; ~100 kg is wastage. **The full 3,000 kg was paid for, so the entire
+issued weight's cost must be absorbed into the packets produced.** Wastage is reported as a
+quantity, a rupee value, and a percentage — but it is **never** deducted from the cost
+basis, or real cost silently vanishes and profit is overstated.
 
-- Total packets produced from the raw material used
-- Weight difference / wastage (raw material ordered vs. actually converted)
-- Total labour/commission cost = packets produced × contractor rate per packet
-- Total sales revenue = packets sold × selling price
-- **Net profit per batch = Sales Revenue − Raw Material Cost − Labour Cost**
+## Product Catalog (foundation — build first)
 
-## Product Catalog
+Every PO line, challan line, invoice line, production batch and inventory record points at
+a product. Nothing else works without it. Per product:
 
-Products are data-driven (no code changes to add a new product type). Each product type
-has:
+- Name, optional internal code
+- **Customer-specific item codes** — one-to-many (a product may carry a different code per
+  customer); a customer's PO code must resolve to the right product
+- **Type**: `traded` or `manufactured`
+- Stock UOM; selling UOM per customer (see UOM resolution below)
+- Manufactured only: expected kg-to-packet yield ratio (planning/variance figure only —
+  actual entered figures always win), default contractor labour rate per packet
+- Traded only: current purchase cost per unit, maintained as a weighted average
+- Default selling price per unit/packet (overridable per PO)
+- Active/inactive status
 
-- Name (e.g. "6-Pack Washcloth", "4-Pack Washcloth", "10-Pack Roll", "10-Pack Ribbon")
-- Weight-to-packet yield ratio (kg → packets)
-- Contractor labour rate per packet
-- Default selling price per packet
+Adding a product must be ordinary data entry, never a code change.
 
-## Documents
+## Customers
 
-- **Challan** — generated when goods are dispatched to a customer, listing products and
-  quantities.
-- **Invoice** — generated for customer billing (especially Habitt); must include the
-  business's signature and stamp image.
-- **Signature/stamp automation** — the user uploads signature and stamp images once in a
-  Settings page; the system auto-inserts them into every generated Challan/Invoice PDF
-  from then on (replacing the current manual paste-per-document process).
+At minimum: Habbitt, Chaseup, ChaseValue, Kifayat (more will be added). Per customer:
+
+- Display name **and** legal/billing name + full billing address (they often differ —
+  e.g. Habbitt's paperwork is addressed to "Universal Retail (PVT) LTD")
+- Ship-to/warehouse address(es), telephone, NTN number, Sales Tax Registration number
+- Contact person(s)
+- **Trade name(s) usable for this customer** — a *default/sort-order hint only*, not an
+  enforced restriction (see Trade Names below; any trade name stays selectable for any
+  customer on any document)
+- **"Issues Performa Invoice" flag** (Yes: Habbitt; No: Chaseup, ChaseValue, Kifayat) —
+  this only changes which event posts a ledger Credit (see Customer Ledger below)
+- Payment terms (drives invoice due dates and ageing)
+- **Opening ledger balance** as of the go-live cutover date
+
+Each customer has a completely independent ledger — never combined or netted.
+
+## Trade Names & Document Settings
+
+The business bills under five trade names, each a separate billing identity:
+
+| Trade name | Currently used for |
+|---|---|
+| Global Distributors | Habbitt |
+| IBL Frontier Market | Habbitt (alternate identity) |
+| M Zayan Impex | Chaseup |
+| Rashid Towel | Kifayat |
+| M.A Textile | ChaseValue |
+
+Trade name is **chosen manually per PO/document**, defaulting to the customer's primary or
+last-used one. No rule may restrict which trade name is usable for which customer or goods
+— that mapping must never be hardcoded, even though today's practice looks consistent.
+
+Each trade name record holds: printed name and address, NTN number, Sales Tax Registration
+number (if applicable), its own Challan number sequence and Invoice number sequence, and
+its own signature image + company stamp image (uploaded once, auto-inserted into every
+generated Challan and Performa Invoice — no manual copy-paste).
+
+## Production Batches (Stream B)
+
+Recorded per batch: raw material lot used (decrements its remaining weight — this
+consumption is what triggers 002's existing read-only lock), weight issued (kg), product
+produced (must be `manufactured`), packets actually produced, weight actually converted
+(kg), contractor + rate per packet for this batch, batch date.
+
+**Actual entered figures are always authoritative.** The product's expected yield ratio only
+pre-fills a suggested packet count and shows a variance — it never overwrites an actual.
+
+```
+Raw material cost      = weight ISSUED (kg) × the lot's rate per kg
+Labour cost            = packets produced × contractor rate per packet
+Total production cost  = raw material cost + labour cost
+Average cost / packet  = total production cost ÷ packets produced
+
+Wastage (kg)  = weight issued − weight converted
+Wastage (Rs)  = wastage (kg) × the lot's rate per kg   [reported only, never deducted]
+Wastage (%)   = wastage ÷ weight issued
+```
+
+Simplest supported model: one lot → one product per batch (confirmed workable; multiple
+batches cover multi-lot/multi-product scenarios).
+
+## Labour / Commission Ledger (Contractor Khata)
+
+Per contractor: name, contact, default rate/packet, and (reference only) their
+sub-contract rate so their commission margin is visible. Amount earned accrues
+automatically from production batches (packets × rate/packet); payments made are logged
+separately; running balance = earned − paid. Weekly/monthly settlement views. Structurally
+identical to a worker khata.
+
+## Finished Goods Inventory
+
+Stock per product, from two sources: production batches (manufactured) and purchases
+(traded). Stock decreases when goods are **accepted** against a Challan, and increases
+again on rejection/return. The inventory view shows quantity on hand and its cost value
+(batch cost basis for manufactured, weighted-average purchase cost for traded).
+
+Structurally, this is a read-side view over an insert-only `inventory_movements` ledger
+(`product_id`, `qty_delta`, `reason`, `source_type`/`source_id`, `movement_date`) — see
+Module Roadmap for when that table is introduced.
+
+## Customer Purchase Orders
+
+Modeled on the Oracle iSupplier pattern Chaseup already uses: Ordered / Delivered /
+Invoiced quantities per line, with header Total/Delivered/Invoiced value and payment
+status. POs arrive as PDFs and are entered manually: PO number/date, customer, purchaser,
+delivery date, destination, **trade name this PO bills under**, line items (item code,
+description, qty, UOM, unit price, line total), PO-level gross/tax/net, original PDF
+attached. Each line's Ordered/Delivered/Invoiced quantities update from Challans and
+Invoices.
+
+## Challans (delivery notes)
+
+One PO may be delivered across several Challans. Printed format: letterhead (selected
+trade name), Challan #, date, customer legal name, line table (S.NO/Article/Item/UOM/QTY),
+total row, two signature lines. The app does not capture a live signature — it produces the
+printed Challan; the **scanned signed copy is uploaded afterwards** as proof of receipt.
+Numbering: sequential with month suffix (`CH #001/Sep`), per trade name, auto-generated and
+overridable.
+
+**Delivered ≠ accepted.** Each line records quantity delivered and quantity accepted
+(defaults equal, edited if the signed challan comes back short). Only the accepted quantity
+counts toward the PO line's Delivered figure and toward what may be invoiced. Rejected
+goods are explicitly recorded as "return to inventory" or "write off" — never assumed. A
+later return (after acceptance) reverses inventory and, if already invoiced, produces a
+credit adjustment on the customer ledger.
+
+Accepting goods writes an `inventory_movements` row (decrement) and, for customers **not**
+flagged "Issues Performa Invoice" (Chaseup, ChaseValue, Kifayat), also writes a `Credit` row
+to `ledger_entries` — this is when their receivable arises, since no invoice exists inside
+this system for them.
+
+## Invoicing, Payments & the Customer Ledger
+
+- **GST Sales Tax Invoice** — prepared externally by the accountant; this system only
+  stores the received PDF as an attachment against the PO/Challan. Never replicate its
+  calculation or layout.
+- **Performa Invoice** — only for customers flagged "Issues Performa Invoice" = Yes
+  (currently Habbitt only). Generated once a PO is fully/partly delivered; replaces the
+  manual Excel→PDF process and the standalone "Global Distributors Performa Invoice" tool
+  (merged in, not kept separate). Auto-inserts signature/stamp for the chosen trade name.
+  Line tax rate configurable, defaulting to 18%. Numbering: sequential per trade name,
+  auto-generated, overridable. Issuing an invoice updates the PO line(s)' Invoiced quantity
+  and writes a `Credit` row to `ledger_entries` (Habbitt's posting event).
+- **One invoice may cover multiple POs** — modeled via `invoice_lines.po_line_id` per
+  line; the invoice header's PO list is derived from its lines, never stored separately.
+- **Customer ledger** — Date | Invoice # | PO Number | Description | Debit | Credit |
+  Balance. Billing events post as Credit; payments received post as Debit. **Balance is
+  always a computed running total, never typed by hand.**
+- **Payments (cheques)** — date, amount, cheque number, bank name, status
+  (Received/Cleared/Bounced). A bounced cheque **reverses** via a new visible entry, never
+  by deleting the original — the ledger stays an honest audit trail.
+- **Opening balances** — required for go-live. Each customer's real existing Excel balance
+  becomes an opening-balance row dated at cutover, from which the running balance
+  continues. Historical row import is optional but supported.
+- **Due dates & ageing** — invoice date + customer payment terms; outstanding view
+  separates overdue from not-yet-due. Date-range filtering, prominent current balance,
+  export to PDF/Excel.
+
+## Cross-Cutting Technical Requirements
+
+- **Users/access**: single internal team, Supabase Auth email/password (as in 001/002). No
+  multi-tenancy, no customer login, no role hierarchy.
+- **File attachments**: PO PDFs, scanned signed Challans, external GST invoice PDFs,
+  signature/stamp images — needs Supabase Storage, set up starting with the first feature
+  that needs it (004, trade names).
+- **Document immutability**: the 002 pattern (read-only once partially consumed) extends
+  to Challans (once issued) and invoices (once posted to the ledger). Corrections happen
+  through explicit adjustment/reversal entries, never silent edits.
+- **Traded-goods costing**: weighted average cost per product, recalculated on each
+  purchase.
+- **Consistency with 001/002**: Postgres schema with real foreign keys, Server Actions (no
+  separate REST layer), ILIKE/substring search, active/inactive status over hard deletes
+  where history matters, PKR with 2-decimal rounding, RLS on every table.
+- **Scale**: small (4–10 customers, a handful of contractors, a few hundred POs/year, a
+  few thousand ledger rows/customer over years). Design for clarity and correctness, not
+  scale — no caching layers, search infra, queues, or sharding.
+
+## Profit & Reports (final rollup)
+
+Per production batch (raw material/labour/total cost, revenue, profit, wastage); per
+product (produced/sold/revenue/cost/margin); per customer (billed/received/outstanding/
+overdue); per traded item (weighted-avg cost vs. selling price, margin); overall business
+profit over a date range; contractor commission summary; wastage trend across batches.
 
 ## Module Roadmap
 
-Built in this order, each going through the full spec → plan → tasks → implement cycle so
-later modules build on an already-reviewed, tested data model:
+Built in this order, each going through the full spec → plan → tasks → analyze → implement
+cycle. Two shared, insert-only ledger tables (`inventory_movements`, `ledger_entries`) are
+introduced **ahead of** their own presentation features, at the point their first real
+writer appears — agreed 2026-09-20 to resolve two ordering tensions in the original build
+plan (a Challan/Invoice-before-Ledger-feature conflict, and a Challan-before-Inventory-
+feature conflict). See "Shared-table decisions" below.
 
 | # | Feature | Summary | Status |
 |---|---------|---------|--------|
-| 001 | Supplier Directory | Manage fabric/material suppliers: contacts, materials, payment terms, status | ✅ Implemented |
-| 002 | Raw Material Purchases | Purchases by weight (kg) and rate/kg, linked to a supplier, with total cost | 🚧 In progress (this spec) |
-| 003 | Production Batches | Raw material used (kg) → product type → packets produced, wastage calc, contractor assignment | Planned |
-| 004 | Labour / Commission Ledger | Contractor rate/packet, packets produced per period, amount due, payments, running balance (weekly/monthly settlement, khata-style) | Planned |
-| 005 | Finished Goods Inventory | Stock levels per product type (produced − sold = remaining) | Planned |
-| 006 | Customers & Sales / Challan | Customer directory (incl. Habitt), sales entries, auto-generated Challan PDF | Planned |
-| 007 | Invoicing | Invoice PDF per sale/customer, auto-inserted signature & stamp | Planned |
-| 008 | Profit & Reports Dashboard | Per-batch, per-product, and overall profit over a date range | Planned |
+| 001 | Supplier Directory | Suppliers: contacts, materials, active/inactive, search/filter | ✅ Implemented |
+| 002 | Raw Material Purchases | Purchases by weight (kg)/rate, total cost, remaining-weight lock | ✅ Implemented |
+| 003 | Product Catalog | Foundation catalog: traded/manufactured, customer item codes, yield ratios, labour rates, prices | Planned (next) |
+| 003b | Traded-Goods Purchasing (extends 002) | Adds a per-unit `purchase_mode` to the existing purchases table (not the weight columns); introduces the `inventory_movements` table as its first writer | Planned |
+| 004 | Trade Names & Document Settings | Letterheads, NTN, signature/stamp upload, document number sequences, Supabase Storage setup | Planned |
+| 005 | Customers | Legal/display names, addresses, NTN, payment terms, usable trade names, Performa Invoice flag; introduces the `ledger_entries` table to hold each customer's opening balance | Planned |
+| 006 | Customer Purchase Orders | PO intake, line items, Ordered/Delivered/Invoiced tracking, PDF attachment | Planned |
+| 007 | Challans | Delivery challans against POs, accepted-vs-delivered, rejections/returns, signed-copy upload; writes `inventory_movements` and, for non-Performa customers, `ledger_entries` Credits | Planned |
+| 008 | Performa Invoicing | Invoice generation with auto signature/stamp, GST invoice attachment, invoice numbering; writes `ledger_entries` Credits for Performa-Invoice customers | Planned |
+| 009 | Customer Ledger | Presentation only: computed running-balance view, ageing, cheque/payment capture (with bounce reversal), opening-balance entry, export | Planned |
+| 010 | Production Batches | Lot → packets, wastage reporting, cost absorption, average cost per packet; writes `inventory_movements` | Planned |
+| 011 | Labour / Commission Ledger | Contractor accounts, accrual from batches, payments, weekly/monthly settlement | Planned |
+| 012 | Finished Goods Inventory | Presentation only: stock-per-product views over `inventory_movements`, with cost value | Planned |
+| 013 | Profit & Reports | Full rollup across purchases, batches, labour, POs, challans, invoices, ledger | Planned |
+
+### Shared-table decisions (from the two ordering tensions)
+
+- **`inventory_movements`** (insert-only: `product_id`, `qty_delta`, `reason`,
+  `source_type`/`source_id`, `movement_date`) is created at **003b**, not 012, because
+  traded-goods purchases are its first real writer. 007 and 010 write to it as they ship;
+  012 is purely a read-side aggregation. A manual/opening stock-adjustment `reason` is
+  included from day one as a hedge for the window where 007 (Challans against manufactured
+  products) ships before 010 (Production Batches) — without it, manufactured stock could
+  show negative with no recorded source until 010 exists.
+- **`ledger_entries`** (`customer_id`, `entry_date`, `type` debit/credit, `amount`,
+  `source_type`/`source_id`, `description`) is created at **005**, not 009, because a
+  customer's opening balance (§9.5 requirement) must be postable at customer-creation
+  time. 007 and 008 write Credits into it as they ship; `customer_payments` (cheque
+  details, bounce handling) and all ageing/export views live entirely in 009.
+
+## Resolved Open Points
+
+1. **Traded-goods purchasing** — extend 002's existing purchases table (feature 003b)
+   rather than a separate table, but via a new `purchase_mode` enum (`weight`/`unit`) and
+   new nullable unit-mode columns (`quantity_units`, `rate_per_unit`, `remaining_units`,
+   a mode-keyed generated `total_cost`) — not by overloading the existing weight columns,
+   to avoid destabilizing the already-shipped consumption lock. Unit-mode rows require a
+   `product_id`; weight-mode rows (fabric lots) do not.
+2. **Tax on Performa Invoices** — configurable per line, defaulting to 18%.
+3. **One invoice, multiple POs** — `invoice_lines.po_line_id` per line; the invoice
+   header's PO list is derived, not stored (consistent with `total_cost`, the consumption
+   lock, and the ledger's computed running balance).
+4. **One batch, one lot, one product** — confirmed as the model; multiple batches cover
+   multi-lot/multi-product scenarios.
+5. **Currency and rounding** — PKR only, 2-decimal, as in 002.
+6. **UOM mismatches** — default same-unit-different-label; a `conversion_factor numeric
+   default 1` column on the customer-item-code mapping table is added now as a cheap hedge
+   in case a real conversion is ever needed.
+7. **Amount in words** — included on generated Performa Invoices.
+8. **Trade name selection** — always a free per-document choice, defaulting to the
+   customer's primary/last-used trade name; never restricted by customer or goods, even
+   though today's usage pattern looks consistent. Not to be re-opened or re-encoded as a
+   rule in any later spec.
+
+### Carried forward for later clarification (non-blocking)
+
+- Customer "usable trade names" (§ Customers) is a **default/sort-order hint only** in the
+  UI — it must not be implemented as an enforced filter, since that would conflict with
+  point 8 above.
+- When pre-filling a new production batch's contractor rate, precedence between the
+  product's default labour rate and the contractor's own default rate is undecided (the
+  batch's actually-entered rate is authoritative either way) — to be resolved as a
+  clarifying question in the 010 spec.
+
+## Explicitly Out of Scope
+
+Customer-facing portal/login; generating the formal GST Sales Tax Invoice; payroll or
+per-worker payments to the contractor's home workers; e-commerce/online payments; barcode
+scanning or warehouse location management; multi-currency; accounting integrations (Tally,
+QuickBooks, FBR filing); mobile apps (responsive web is sufficient).
+
+## Definition of Done for the Whole System
+
+1. Every customer PO is entered once and its delivery, invoicing and payment status is
+   visible without opening Excel.
+2. Challans and Performa Invoices print with the correct letterhead, signature and stamp
+   without any manual copy-paste.
+3. Each customer's ledger balance matches the real balance, continuing correctly from the
+   opening balance.
+4. Production batches show kg in, packets out, wastage, and true cost per packet.
+5. The contractor's weekly/monthly dues are calculated, not hand-tallied.
+6. The Excel ledger files are retired.
 
 ## Cross-Cutting Notes for Future Specs
 
-- **Data model continuity**: Production Batches (003) will reference Raw Material
-  Purchases (002) by lot/batch; Labour Ledger (004) and Finished Goods Inventory (005)
-  will reference Production Batches (003); Sales/Challan (006) will reference Finished
-  Goods Inventory (005) and Customers; Invoicing (007) will reference Sales (006);
-  Profit & Reports (008) reads across Purchases, Batches, Labour, and Sales.
-- **Product type catalog** (name, yield ratio, labour rate, default price) is shared
-  reference data needed starting with Production Batches (003) — it does not need to
-  exist for 002, but 002's supplier/material linkage should stay compatible with it.
-- **Tech stack**: Next.js + Supabase (Postgres + Supabase Auth), deployed on Vercel
-  (switched from Firestore/Firebase Auth on 2026-09-16 — see
-  [ADR-0001](../history/adr/0001-firebase-to-supabase-backend.md) — after 001 and 002 were
-  already implemented; all modules from here on (003+) are planned directly against Postgres).
+- **Data model continuity**: 003 (Product Catalog) is referenced by every later feature.
+  003b introduces `inventory_movements`; 005 introduces `ledger_entries`. 007 and 010 write
+  the former; 007 and 008 write the latter. 009 and 012 are presentation-only over tables
+  that already exist by the time they're built.
 - **Wastage visibility**: any feature touching raw-material-to-packet conversion must
   surface the weight difference/wastage explicitly, not just the converted amount.
+- **Tech stack**: Next.js + Supabase (Postgres + Supabase Auth), deployed on Vercel (see
+  [ADR-0001](../history/adr/0001-firebase-to-supabase-backend.md)). All modules from 003
+  onward are planned directly against Postgres.
