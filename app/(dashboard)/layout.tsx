@@ -34,6 +34,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <Link href="/customers" className="text-sm text-zinc-600 hover:text-zinc-900">
             Customers
           </Link>
+          <Link href="/customer-pos" className="text-sm text-zinc-600 hover:text-zinc-900">
+            Customer POs
+          </Link>
         </nav>
         <form
           action={async () => {

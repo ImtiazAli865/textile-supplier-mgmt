@@ -245,6 +245,15 @@ export async function listCustomers(
   }));
 }
 
+/** Thin wrapper for pickers (e.g. 006-customer-purchase-orders' customer picker) — the
+ * addition this feature's own contracts/server-actions.md already deferred to 006. */
+export async function listActiveCustomersForSelect(): Promise<
+  { id: string; displayName: string }[]
+> {
+  const customers = await listCustomers({ status: "active" });
+  return customers.map(({ id, displayName }) => ({ id, displayName }));
+}
+
 export async function getCustomer(id: string): Promise<CustomerDetail | null> {
   const { data, error } = await getSupabaseAdmin()
     .from("customers")
