@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getProduct } from "@/lib/products/service";
+import { listProductCustomerMappings } from "@/lib/customers/product-mappings";
 import { ProductStatusControl } from "@/components/products/product-status-control";
 
 interface ProductDetailPageProps {
@@ -9,7 +10,10 @@ interface ProductDetailPageProps {
 
 export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
   const { productId } = await params;
-  const product = await getProduct(productId);
+  const [product, customerMappings] = await Promise.all([
+    getProduct(productId),
+    listProductCustomerMappings(productId),
+  ]);
   if (!product) notFound();
 
   return (
@@ -88,6 +92,25 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
               </p>
             </section>
           </>
+        )}
+
+        {customerMappings.length > 0 && (
+          <section>
+            <h2 className="mb-1 text-sm font-medium text-zinc-500">Mapped to customers</h2>
+            <ul className="space-y-1 text-sm text-zinc-900">
+              {customerMappings.map((mapping) => (
+                <li key={mapping.id}>
+                  <Link href={`/customers/${mapping.customerId}`} className="underline">
+                    {mapping.customerDisplayName}
+                  </Link>
+                  {mapping.customerItemCode && ` · Item code: ${mapping.customerItemCode}`}
+                  {mapping.sellingUom && ` · Selling unit: ${mapping.sellingUom}`}
+                  {mapping.defaultPrice != null &&
+                    ` · Default price: Rs ${mapping.defaultPrice.toFixed(2)} (pre-fill only)`}
+                </li>
+              ))}
+            </ul>
+          </section>
         )}
 
         <section className="border-t border-zinc-100 pt-3 text-xs text-zinc-400">

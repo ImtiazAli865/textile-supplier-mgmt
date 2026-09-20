@@ -130,6 +130,14 @@ export async function listTradeNames(
   }));
 }
 
+/** Thin wrapper over listTradeNames — reused, not reimplemented, by 005-customers' trade-name-hint picker. */
+export async function listActiveTradeNamesForSelect(): Promise<
+  { id: string; printedName: string }[]
+> {
+  const tradeNames = await listTradeNames({ status: "active" });
+  return tradeNames.map(({ id, printedName }) => ({ id, printedName }));
+}
+
 export async function getTradeName(id: string): Promise<TradeNameDetail | null> {
   const { data, error } = await getSupabaseAdmin()
     .from("trade_names")

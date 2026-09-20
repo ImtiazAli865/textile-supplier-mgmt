@@ -166,6 +166,16 @@ export async function listActiveTradedProductsForSelect(): Promise<
   return products.map(({ id, name, stockUom }) => ({ id, name, stockUom }));
 }
 
+/** Thin wrapper over listProducts — reused by 005-customers' product-mapping picker. No
+ * `type` filter, unlike 003b's traded-only wrapper, since a customer may need a mapping to
+ * either a traded or a manufactured product. */
+export async function listActiveProductsForSelect(): Promise<
+  { id: string; name: string; stockUom: string }[]
+> {
+  const products = await listProducts({ status: "active" });
+  return products.map(({ id, name, stockUom }) => ({ id, name, stockUom }));
+}
+
 export async function updateProductRecord(
   id: string,
   input: ProductUpdateInput,
