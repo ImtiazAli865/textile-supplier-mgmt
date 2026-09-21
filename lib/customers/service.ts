@@ -254,6 +254,26 @@ export async function listActiveCustomersForSelect(): Promise<
   return customers.map(({ id, displayName }) => ({ id, displayName }));
 }
 
+/** Active customers flagged issues_performa_invoice = true — populates 008-performa-invoicing's
+ * customer picker, restricting selection to eligible customers up front (FR-001) rather than
+ * only rejecting ineligible ones at submission time. */
+export async function listPerformaInvoiceCustomersForSelect(): Promise<
+  { id: string; displayName: string }[]
+> {
+  const { data, error } = await getSupabaseAdmin()
+    .from("customers")
+    .select("id, display_name")
+    .eq("status", "active")
+    .eq("issues_performa_invoice", true)
+    .order("display_name", { ascending: true });
+  if (error) throw error;
+
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    displayName: row.display_name as string,
+  }));
+}
+
 export async function getCustomer(id: string): Promise<CustomerDetail | null> {
   const { data, error } = await getSupabaseAdmin()
     .from("customers")
