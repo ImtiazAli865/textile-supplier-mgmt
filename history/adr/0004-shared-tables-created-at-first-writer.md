@@ -5,17 +5,28 @@
 > `ledger_entries` or `inventory_movements` alone.
 
 - **Status:** Accepted
+- **Amended 2026-09-21**: The claim in this ADR's original Context — that
+  `inventory_movements` was *"first applied by 003b-traded-goods-purchasing"* — was factually
+  wrong. 003b never actually created that table; it added a directly-maintained
+  `products.quantity_on_hand` column instead. `inventory_movements` was not created until
+  **007-challans**, which is its real first writer. This ADR's *decision and principle* (a shared
+  insert-only table is created at its first real writer, using the master-spec's literal shape) is
+  unaffected and remains in force — only the factual example below is corrected. See
+  [ADR-0005](0005-inventory-movements-created-at-007-not-003b.md) for the full correction and the
+  deeper `products.quantity_on_hand` reconciliation it required.
 - **Date:** 2026-09-20
-- **Feature:** 005-customers (second application; first applied by 003b-traded-goods-purchasing's
-  `inventory_movements`). Both were pre-agreed at the master-spec level in
+- **Feature:** 005-customers (second application; ~~first applied by 003b-traded-goods-purchasing's
+  `inventory_movements`~~ — corrected 2026-09-21: `inventory_movements` had no first application
+  yet at this ADR's original writing; see amendment above). Both were pre-agreed at the master-spec level in
   `specs/PRODUCT-OVERVIEW.md` § "Shared-table decisions" before either feature's own `/sp.plan`
   ran; this ADR is the first formal write-up of that already-agreed pattern, surfaced during
   005's Constitution Check for consent.
 - **Context:** Several tables in this system's data model are written to by more than one
-  feature over time but don't "belong" to any single one: `inventory_movements` (written by
-  003b's traded-goods purchases now, and will be written by 010-production-batches and
-  012-finished-goods-inventory later) and `ledger_entries` (written by 005-customers' opening
-  balance now, and will be written by 007-challans and 008-performa-invoicing later). Each such
+  feature over time but don't "belong" to any single one: `inventory_movements` (~~written by
+  003b's traded-goods purchases now~~ — corrected 2026-09-21: not created until 007-challans,
+  which will be written by 010-production-batches later too) and `ledger_entries` (written by
+  005-customers' opening balance now, and will be written by 007-challans and
+  008-performa-invoicing later). Each such
   table also has its own dedicated *presentation* feature later in the roadmap
   (012-finished-goods-inventory for movements-as-stock-view; 009-customer-ledger for
   entries-as-ledger-view) that owns reporting, ageing, and any UI beyond raw inserts. The question
@@ -33,15 +44,18 @@ duplicated as a feature-private table in the meantime. Concretely:
   the first writer's `data-model.md`, using the shape already agreed at the master-spec level
   (`specs/PRODUCT-OVERVIEW.md`'s literal column definitions for that table), not a shape the first
   writer invents unilaterally.
-- The first writer's own scope is limited to inserting rows it's responsible for
-  (003b: purchase/consumption movements; 005: the opening-balance entry) and to any read the first
-  writer itself needs (003b: `products.current_purchase_cost` recomputation; 005: a live `SUM` for
-  the customer detail view). It does **not** build the table's full presentation (running views,
-  ageing, filtering, editing history) — that remains the presentation feature's job when it ships.
-- Later writers (007/008 for `ledger_entries`; 010/012 for `inventory_movements`) add new
-  `source_type` values and their own insert paths without a migration to widen any `CHECK` — both
-  tables' `source_type`/equivalent discriminator columns are deliberately free text for exactly
-  this reason.
+- The first writer's own scope is limited to inserting rows it's responsible for (~~003b:
+  purchase/consumption movements~~ — corrected 2026-09-21: 007-challans is the real first writer,
+  inserting acceptance/return movements, and also had to reconcile 003b's pre-existing
+  `products.quantity_on_hand` maintenance against this table — see
+  [ADR-0005](0005-inventory-movements-created-at-007-not-003b.md); 005: the opening-balance entry)
+  and to any read the first writer itself needs (005: a live `SUM` for the customer detail view).
+  It does **not** build the table's full presentation (running views, ageing, filtering, editing
+  history) — that remains the presentation feature's job when it ships.
+- Later writers (007/008 for `ledger_entries`; 010 for `inventory_movements`, with 012 as its
+  presentation feature) add new `source_type` values and their own insert paths without a
+  migration to widen any `CHECK` — both tables' `source_type`/equivalent discriminator columns are
+  deliberately free text for exactly this reason.
 - No update/delete path is ever added to these tables by an earlier writer on behalf of a later
   feature; each table's own immutability rules (e.g. `ledger_entries` has no update/delete path
   anywhere per FR-013) are decided by that table's own governing spec, not assumed by this ADR.
@@ -50,9 +64,9 @@ duplicated as a feature-private table in the meantime. Concretely:
 
 ### Positive
 
-- A customer's opening balance (005) and a traded purchase's stock effect (003b) can be recorded
-  correctly and immediately, without inventing a throwaway private table that would later need a
-  painful data migration into the "real" shared table once 009 or 012 ships.
+- A customer's opening balance (005) and, once actually needed, a Challan's stock effect (007) can
+  be recorded correctly and immediately, without inventing a throwaway private table that would
+  later need a painful data migration into the "real" shared table once 009 or 012 ships.
 - The master spec's own literal column definitions become the single source of truth for a shared
   table's shape from the moment it first exists, rather than each writer guessing independently
   and converging by luck.
@@ -104,8 +118,8 @@ do with the presentation feature's own scope (reporting, ageing, UI).
 
 ## References
 
-- Feature Spec: `specs/005-customers/spec.md` (`ledger_entries`'s introduction), `specs/003b-traded-goods-purchasing/spec.md` (`inventory_movements`'s introduction)
-- Implementation Plan: `specs/005-customers/plan.md` (Constitution Check — where this decision was surfaced for consent), `specs/003b-traded-goods-purchasing/plan.md`
-- Data Model: `specs/005-customers/data-model.md` (`ledger_entries` table + read-only balance helper), `specs/003b-traded-goods-purchasing/data-model.md` (`inventory_movements` table)
+- Feature Spec: `specs/005-customers/spec.md` (`ledger_entries`'s introduction); ~~`specs/003b-traded-goods-purchasing/spec.md` (`inventory_movements`'s introduction)~~ — corrected 2026-09-21: see `specs/007-challans/spec.md` instead (`inventory_movements`'s actual introduction)
+- Implementation Plan: `specs/005-customers/plan.md` (Constitution Check — where this decision was surfaced for consent); `specs/007-challans/plan.md` (where the correction below was surfaced)
+- Data Model: `specs/005-customers/data-model.md` (`ledger_entries` table + read-only balance helper); `specs/007-challans/data-model.md` (`inventory_movements` table, its actual introduction)
 - Master Spec: `specs/PRODUCT-OVERVIEW.md` § "Shared-table decisions" (the original 2026-09-20 agreement this ADR formally records)
-- Related ADRs: [ADR-0002](0002-atomic-multi-table-writes-via-postgres-functions.md) (the sibling pattern for how a single feature writes atomically across its own tables — this ADR is about which feature owns a shared table's schema, not how any one write is made atomic)
+- Related ADRs: [ADR-0002](0002-atomic-multi-table-writes-via-postgres-functions.md) (the sibling pattern for how a single feature writes atomically across its own tables — this ADR is about which feature owns a shared table's schema, not how any one write is made atomic); [ADR-0005](0005-inventory-movements-created-at-007-not-003b.md) (the formal correction of this ADR's `inventory_movements` origin claim, and the `products.quantity_on_hand` reconciliation it required)

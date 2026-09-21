@@ -1,8 +1,15 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCustomerPO } from "@/lib/customer-pos/service";
+import { listChallans } from "@/lib/challans/service";
 import { CustomerPoStatusControl } from "@/components/customer-pos/customer-po-status-control";
 import { AttachmentList } from "@/components/customer-pos/attachment-list";
+
+const CHALLAN_STATUS_STYLES: Record<string, string> = {
+  issued: "bg-blue-100 text-blue-800",
+  accepted: "bg-green-100 text-green-800",
+  voided: "bg-zinc-100 text-zinc-600",
+};
 
 interface CustomerPODetailPageProps {
   params: Promise<{ poId: string }>;
@@ -10,7 +17,7 @@ interface CustomerPODetailPageProps {
 
 export default async function CustomerPODetailPage({ params }: CustomerPODetailPageProps) {
   const { poId } = await params;
-  const po = await getCustomerPO(poId);
+  const [po, challans] = await Promise.all([getCustomerPO(poId), listChallans({ poId })]);
   if (!po) notFound();
 
   return (
@@ -102,6 +109,48 @@ export default async function CustomerPODetailPage({ params }: CustomerPODetailP
         </section>
 
         <AttachmentList poId={po.id} attachments={po.attachments} />
+
+        <section>
+          <div className="mb-2 flex items-center justify-between">
+            <h2 className="text-sm font-medium text-zinc-500">Challans</h2>
+            {po.status === "open" && (
+              <Link
+                href={`/challans/new?poId=${po.id}`}
+                className="text-sm text-zinc-600 underline hover:text-zinc-900"
+              >
+                Create Challan
+              </Link>
+            )}
+          </div>
+          {challans.length > 0 ? (
+            <ul className="space-y-1 text-sm">
+              {challans.map((challan) => (
+                <li key={challan.id} className="flex items-center justify-between">
+                  <Link
+                    href={`/challans/${challan.id}`}
+                    className="text-zinc-700 underline hover:text-zinc-900"
+                  >
+                    {challan.challanNumber}
+                  </Link>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-zinc-400">
+                      {new Date(challan.challanDate).toLocaleDateString()}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                        CHALLAN_STATUS_STYLES[challan.status] ?? "bg-zinc-100 text-zinc-600"
+                      }`}
+                    >
+                      {challan.status}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-zinc-400">No Challans issued against this PO yet.</p>
+          )}
+        </section>
 
         <section className="border-t border-zinc-100 pt-3 text-xs text-zinc-400">
           Created {new Date(po.createdAt).toLocaleString()} · Last updated{" "}

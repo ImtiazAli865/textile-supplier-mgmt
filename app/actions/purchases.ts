@@ -39,8 +39,8 @@ export async function updatePurchase(id: string, input: PurchaseInput): Promise<
 
 export async function deletePurchase(id: string): Promise<ActionResult> {
   try {
-    await requireCurrentUser();
-    await deletePurchaseRecord(id);
+    const user = await requireCurrentUser();
+    await deletePurchaseRecord(id, user.id);
     revalidatePath("/purchases");
     return { success: true };
   } catch (error) {

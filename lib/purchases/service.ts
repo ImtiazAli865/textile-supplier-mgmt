@@ -339,7 +339,7 @@ export async function updatePurchaseRecord(
   }
 }
 
-export async function deletePurchaseRecord(id: string): Promise<void> {
+export async function deletePurchaseRecord(id: string, userId: string): Promise<void> {
   const { data, error: fetchError } = await getSupabaseAdmin()
     .from(PURCHASES_TABLE)
     .select("*")
@@ -365,6 +365,11 @@ export async function deletePurchaseRecord(id: string): Promise<void> {
     throw new PurchaseLockedError("This purchase has already been used and cannot be deleted");
   }
 
-  const { error } = await getSupabaseAdmin().rpc("delete_unit_purchase", { p_id: id });
+  // p_user_id attributes the reversing inventory_movements row this RPC now writes (007-challans,
+  // ADR-0005) — delete_unit_purchase's signature was extended to accept it.
+  const { error } = await getSupabaseAdmin().rpc("delete_unit_purchase", {
+    p_id: id,
+    p_user_id: userId,
+  });
   if (error) throw error;
 }
