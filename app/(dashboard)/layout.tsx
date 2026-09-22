@@ -43,6 +43,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <Link href="/performa-invoices" className="text-sm text-zinc-600 hover:text-zinc-900">
             Performa Invoices
           </Link>
+          <Link href="/customer-ledger" className="text-sm text-zinc-600 hover:text-zinc-900">
+            Ledger
+          </Link>
         </nav>
         <form
           action={async () => {

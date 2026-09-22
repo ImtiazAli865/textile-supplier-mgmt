@@ -41,6 +41,12 @@ export default async function CustomerDetailPage({ params }: CustomerDetailPageP
         <section>
           <h2 className="mb-1 text-sm font-medium text-zinc-500">Running ledger balance</h2>
           <p className="text-lg font-semibold text-zinc-900">Rs {customer.ledgerBalance.toFixed(2)}</p>
+          <Link
+            href={`/customers/${customer.id}/ledger`}
+            className="mt-1 inline-block text-sm text-zinc-600 underline hover:text-zinc-900"
+          >
+            View full ledger
+          </Link>
         </section>
 
         <section>
