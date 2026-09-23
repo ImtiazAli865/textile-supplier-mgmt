@@ -129,7 +129,7 @@ export function BatchList({ result }: { result: BatchListResult }) {
 
   return (
     <div className="overflow-x-auto rounded border border-zinc-200 bg-white">
-      <table className="w-full text-sm">
+      <table className="w-full text-sm text-zinc-900">
         <thead>
           <tr className="border-b border-zinc-200 text-left text-xs text-zinc-500">
             <th className="px-3 py-2">Batch</th>

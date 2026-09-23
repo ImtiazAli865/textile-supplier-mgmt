@@ -90,7 +90,7 @@ export function ContractorList({ contractors }: { contractors: ContractorListIte
   }
 
   return (
-    <table className="w-full rounded border border-zinc-200 bg-white text-sm">
+    <table className="w-full rounded border border-zinc-200 bg-white text-sm text-zinc-900">
       <thead>
         <tr className="border-b border-zinc-200 text-left text-xs text-zinc-500">
           <th className="px-4 py-2">Name</th>

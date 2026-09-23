@@ -98,7 +98,7 @@ This is a single Next.js project at the repository root (plan.md, Project Struct
   - `toFriendlyBatchError(error)`, mapping every error code from T003/T004 to the friendly error classes and messages listed in [contracts/server-actions.md](./contracts/server-actions.md), the same way `toFriendlyChallanError` in `lib/challans/service.ts` does;
   - an exported `round2` helper;
   - the error classes: `LotInsufficientWeightError`, `IssueBeforePurchaseError`, `ProductNotEligibleError`, `ContractorNotActiveError`, `BatchNotEditableError`, `BatchNotVoidableError`, `BatchNotIssuedError`, `CompletionBeforeIssueError`, `ReturnedWeightUnconfirmedError`, `OpeningStockExistsError`, `CorrectionExistsError`, `StockAlreadyShippedError`, `CorrectionBelowZeroError`, and the rest.
-- [ ] T009 Apply `0010_production_batches.sql` to the Supabase project (SQL editor or the CLI already in use for 0001–0009). Confirm the three tables, the sequence and the six functions exist (depends on T002–T004).
+- [X] T009 Apply `0010_production_batches.sql` to the Supabase project (SQL editor or the CLI already in use for 0001–0009). Confirm the three tables, the sequence and the six functions exist (depends on T002–T004).
 
 **Checkpoint**: Foundation ready. User story work can begin.
 
@@ -293,7 +293,12 @@ This is a single Next.js project at the repository root (plan.md, Project Struct
 ## Phase 9: Polish & Cross-Cutting Concerns
 
 - [X] T042 Run `npm run lint` and `npm run build`, and fix every error and warning introduced by this feature. Don't touch unrelated files.
-- [ ] T043 Run the full [quickstart.md](./quickstart.md) walkthrough (§1–§8) against the dev server and tick each item. Any failure is fixed in the relevant task's files before this task is marked done.
+- [X] T043 Run the full [quickstart.md](./quickstart.md) walkthrough (§1–§8) against the dev server and tick each item. Any failure is fixed in the relevant task's files before this task is marked done.
+  - **2026-09-24 status**: done.
+    - **Logic, live:** 70/70 checks against the real Supabase project through the service layer.
+    - **Screens, in a signed-in browser:** contractors (create, duplicate rejection, deactivate, filter, rename shown on batches); issue (lot labels, rate pre-fill, packet suggestion, insufficient-weight error, back-dated issue); complete (0-packet block at browser and form level, live preview, the worked example on screen, read-only frozen breakdown, exceeded-weight warning and confirm); edit/void (edit pre-fill, lot restore, void read-only, Option A delete refusal shown on the purchase page); opening stock (record, below-zero error, correction, "Corrected", "Stock already shipped on a Challan"); list (WIP row, days out, average cost, status/product/search/date filters); product stock history.
+    - **Found and fixed during the UI pass:** the three new tables had unreadable row text under dark-mode OS settings. They now set `text-zinc-900`.
+    - All QA data was deleted and verified.
 - [X] T044 [P] Update `specs/PRODUCT-OVERVIEW.md`:
   - set the Module Roadmap row for 010 to "Implemented";
   - mark the carried-forward labour-rate precedence point as resolved (the product default only; contractor×product rates deferred to 011, per ADR-0008);
