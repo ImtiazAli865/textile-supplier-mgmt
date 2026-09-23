@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { purchaseInputSchema, type PurchaseInput, type PurchaseMode } from "@/lib/purchases/schema";
 import { createPurchase, updatePurchase } from "@/app/actions/purchases";
+import { todayInPakistan } from "@/lib/dates";
 
-const todayIsoDate = () => new Date().toISOString().slice(0, 10);
+// Default and max are Pakistan's calendar date (ADR-0009), matching the schema's rule.
+const todayIsoDate = todayInPakistan;
 
 /** Flat superset of both PurchaseInput branches — the form always holds every field,
  * and `mode` decides which subset is actually sent (and validated) on submit. */

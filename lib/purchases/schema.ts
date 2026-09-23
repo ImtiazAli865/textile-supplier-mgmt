@@ -1,16 +1,14 @@
 import { z } from "zod";
+import { isNotAfterTodayInPakistan } from "@/lib/dates";
 
-function endOfTodayUtc(): Date {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
-}
-
+// "Not in the future" means not after Pakistan's calendar date (ADR-0009). The previous
+// end-of-UTC-day comparison rejected today's date between 00:00 and 05:00 PKT.
 const purchaseDateSchema = z
   .string()
   .trim()
   .min(1, "Purchase date is required")
   .refine((value) => !Number.isNaN(Date.parse(value)), "Invalid purchase date")
-  .refine((value) => new Date(value).getTime() <= endOfTodayUtc().getTime(), {
+  .refine(isNotAfterTodayInPakistan, {
     message: "Purchase date cannot be in the future",
   });
 

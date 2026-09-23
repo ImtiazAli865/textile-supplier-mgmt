@@ -166,6 +166,74 @@ export async function listActiveTradedProductsForSelect(): Promise<
   return products.map(({ id, name, stockUom }) => ({ id, name, stockUom }));
 }
 
+/** Active manufactured products for 010's batch issue form, carrying the labour-rate pre-fill
+ * (FR-007) and the yield for the expected-packets suggestion (FR-008). listProducts' list shape
+ * omits those two columns, so this queries them directly rather than widening listProducts. */
+export async function listActiveManufacturedProductsForSelect(): Promise<
+  {
+    id: string;
+    name: string;
+    stockUom: string;
+    defaultLabourRatePerPacket: number;
+    expectedYieldPerKg: number;
+  }[]
+> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(PRODUCTS_TABLE)
+    .select("id, name, stock_uom, default_labour_rate_per_packet, expected_yield_per_kg")
+    .eq("type", "manufactured")
+    .eq("status", "active")
+    .order("name", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    name: row.name as string,
+    stockUom: row.stock_uom as string,
+    defaultLabourRatePerPacket: Number(row.default_labour_rate_per_packet),
+    expectedYieldPerKg: Number(row.expected_yield_per_kg),
+  }));
+}
+
+/** All manufactured products (active and inactive), for 010's batch list product filter. */
+export async function listManufacturedProductsForFilter(): Promise<{ id: string; name: string }[]> {
+  const { data, error } = await getSupabaseAdmin()
+    .from(PRODUCTS_TABLE)
+    .select("id, name")
+    .eq("type", "manufactured")
+    .order("name", { ascending: true });
+  if (error) throw error;
+  return (data ?? []).map((row) => ({ id: row.id as string, name: row.name as string }));
+}
+
+/** A product's stock history — its inventory_movements rows, newest first (010: makes FR-015's
+ * "traceable to the batch" and US3's "Opening balance" labels visible). Read-only. */
+export async function listProductStockMovements(productId: string): Promise<
+  {
+    id: string;
+    movementDate: string;
+    reason: string;
+    qtyDelta: number;
+    sourceType: string;
+    sourceId: string | null;
+  }[]
+> {
+  const { data, error } = await getSupabaseAdmin()
+    .from("inventory_movements")
+    .select("id, movement_date, reason, qty_delta, source_type, source_id")
+    .eq("product_id", productId)
+    .order("movement_date", { ascending: false })
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data ?? []).map((row) => ({
+    id: row.id as string,
+    movementDate: row.movement_date as string,
+    reason: row.reason as string,
+    qtyDelta: Number(row.qty_delta),
+    sourceType: row.source_type as string,
+    sourceId: row.source_id as string | null,
+  }));
+}
+
 /** Thin wrapper over listProducts — reused by 005-customers' product-mapping picker. No
  * `type` filter, unlike 003b's traded-only wrapper, since a customer may need a mapping to
  * either a traded or a manufactured product. */

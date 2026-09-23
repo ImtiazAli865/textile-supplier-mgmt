@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getProduct } from "@/lib/products/service";
+import { getProduct, listProductStockMovements } from "@/lib/products/service";
 import { listProductCustomerMappings } from "@/lib/customers/product-mappings";
 import { ProductStatusControl } from "@/components/products/product-status-control";
 
@@ -10,9 +10,10 @@ interface ProductDetailPageProps {
 
 export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
   const { productId } = await params;
-  const [product, customerMappings] = await Promise.all([
+  const [product, customerMappings, stockMovements] = await Promise.all([
     getProduct(productId),
     listProductCustomerMappings(productId),
+    listProductStockMovements(productId),
   ]);
   if (!product) notFound();
 
@@ -72,6 +73,12 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                 Rs {product.defaultLabourRatePerPacket?.toFixed(2)}
               </p>
             </section>
+            <section>
+              <h2 className="mb-1 text-sm font-medium text-zinc-500">Quantity on hand</h2>
+              <p className="text-sm text-zinc-900">
+                {product.quantityOnHand.toFixed(2)} {product.stockUom}
+              </p>
+            </section>
           </>
         ) : (
           <>
@@ -110,6 +117,43 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
                 </li>
               ))}
             </ul>
+          </section>
+        )}
+
+        {stockMovements.length > 0 && (
+          <section>
+            <h2 className="mb-1 text-sm font-medium text-zinc-500">Stock history</h2>
+            <table className="w-full text-sm">
+              <tbody>
+                {stockMovements.map((movement) => (
+                  <tr key={movement.id} className="border-b border-zinc-100">
+                    <td className="py-1 pr-2 text-zinc-500">{movement.movementDate}</td>
+                    <td className="py-1 pr-2 text-zinc-900">
+                      {movement.reason}
+                      {movement.sourceType === "production_batch" && movement.sourceId && (
+                        <>
+                          {" · "}
+                          <Link
+                            href={`/production-batches/${movement.sourceId}`}
+                            className="underline"
+                          >
+                            View batch
+                          </Link>
+                        </>
+                      )}
+                    </td>
+                    <td
+                      className={`py-1 text-right font-medium ${
+                        movement.qtyDelta < 0 ? "text-red-700" : "text-green-700"
+                      }`}
+                    >
+                      {movement.qtyDelta > 0 ? "+" : ""}
+                      {movement.qtyDelta}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </section>
         )}
 

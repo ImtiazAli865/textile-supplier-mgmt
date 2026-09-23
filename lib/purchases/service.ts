@@ -289,7 +289,7 @@ export async function updatePurchaseRecord(
     const weightKg = round2(input.weightKg);
     const ratePerKg = round2(input.ratePerKg);
 
-    const { error } = await getSupabaseAdmin()
+    const { data: updated, error } = await getSupabaseAdmin()
       .from(PURCHASES_TABLE)
       .update({
         supplier_id: input.supplierId,
@@ -301,8 +301,18 @@ export async function updatePurchaseRecord(
         remaining_weight_kg: weightKg,
         updated_by: userId,
       })
-      .eq("id", id);
+      .eq("id", id)
+      // Re-assert "still unconsumed" in the same statement: a production batch (010) issued
+      // between the check above and this write must not be silently undone by the reset.
+      .eq("weight_kg", existing.weightKg!)
+      .eq("remaining_weight_kg", existing.weightKg!)
+      .select("id");
     if (error) throw error;
+    if (!updated || updated.length === 0) {
+      throw new PurchaseLockedError(
+        "This lot has already been used in production and can no longer be edited"
+      );
+    }
     return;
   }
 
@@ -356,8 +366,29 @@ export async function deletePurchaseRecord(id: string, userId: string): Promise<
         "This lot has already been used in production and cannot be deleted"
       );
     }
-    const { error } = await getSupabaseAdmin().from(PURCHASES_TABLE).delete().eq("id", id);
-    if (error) throw error;
+    const { data: deleted, error } = await getSupabaseAdmin()
+      .from(PURCHASES_TABLE)
+      .delete()
+      .eq("id", id)
+      // Same single-statement "still unconsumed" guard as the weight-lot edit above (010).
+      .eq("weight_kg", existing.weightKg!)
+      .eq("remaining_weight_kg", existing.weightKg!)
+      .select("id");
+    if (error) {
+      // A production batch — voided ones included — still references this lot (010, spec
+      // US4-5/FR-012): the FK keeps every batch's lot traceable, so the lot can't be deleted.
+      if (error.code === "23503") {
+        throw new PurchaseLockedError(
+          "This lot is referenced by a production batch (voided batches included) and cannot be deleted"
+        );
+      }
+      throw error;
+    }
+    if (!deleted || deleted.length === 0) {
+      throw new PurchaseLockedError(
+        "This lot has already been used in production and cannot be deleted"
+      );
+    }
     return;
   }
 

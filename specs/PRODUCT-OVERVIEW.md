@@ -262,7 +262,7 @@ feature conflict). See "Shared-table decisions" below.
 | 007 | Challans | Delivery challans against POs, accepted-vs-delivered, rejections/returns, signed-copy upload; writes `inventory_movements` and, for non-Performa customers, `ledger_entries` Credits | Planned |
 | 008 | Performa Invoicing | Invoice generation with auto signature/stamp, GST invoice attachment, invoice numbering; writes `ledger_entries` Credits for Performa-Invoice customers | Planned |
 | 009 | Customer Ledger | Presentation only: computed running-balance view, ageing, cheque/payment capture (with bounce reversal), opening-balance entry, export | Planned |
-| 010 | Production Batches | Lot → packets, wastage reporting, cost absorption, average cost per packet; writes `inventory_movements` | Planned |
+| 010 | Production Batches | Lot → packets, wastage reporting, cost absorption, average cost per packet; writes `inventory_movements`; creates the minimal `contractors` table; one-time manufactured opening stock (+ at most one correction) | 🟡 Implemented — awaiting migration 0010 + quickstart verification |
 | 011 | Labour / Commission Ledger | Contractor accounts, accrual from batches, payments, weekly/monthly settlement | Planned |
 | 012 | Finished Goods Inventory | Presentation only: stock-per-product views over `inventory_movements`, with cost value | Planned |
 | 013 | Profit & Reports | Full rollup across purchases, batches, labour, POs, challans, invoices, ledger | Planned |
@@ -311,10 +311,13 @@ feature conflict). See "Shared-table decisions" below.
 - Customer "usable trade names" (§ Customers) is a **default/sort-order hint only** in the
   UI — it must not be implemented as an enforced filter, since that would conflict with
   point 8 above.
-- When pre-filling a new production batch's contractor rate, precedence between the
-  product's default labour rate and the contractor's own default rate is undecided (the
-  batch's actually-entered rate is authoritative either way) — to be resolved as a
-  clarifying question in the 010 spec.
+- ~~When pre-filling a new production batch's contractor rate, precedence between the
+  product's default labour rate and the contractor's own default rate is undecided~~ —
+  **Resolved in 010 (ADR-0008)**: the batch pre-fills from the product's default labour rate
+  only; the batch's entered rate is authoritative and frozen at completion. Any
+  contractor-sourced rate is deferred to 011 and, if added, must be a contractor × product
+  rate (a flat per-contractor rate would be wrong, since the rate depends mostly on the
+  product); it would then take precedence over the product default for pre-fill only.
 
 ## Explicitly Out of Scope
 
