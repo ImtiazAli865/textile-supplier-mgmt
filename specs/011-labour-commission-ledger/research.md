@@ -235,19 +235,25 @@ This file records the implementation decisions made while planning. There were n
      (payment vs payment, payment vs settlement, completion vs settlement) run on **live
      Supabase**. PGlite is a single-connection engine, so row locks never contend there. No
      Docker is available for a local Supabase stack.
-  2. **QA tagging**: every QA row hangs off contractors named `QA-011 …`; the QA lot, product and
-     any other seed rows also carry the `QA-011` prefix. The seed script records the number of
-     rows it created per table.
+  2. **QA tagging**: every QA row, whether made by the seed script or by hand in the quickstart
+     walkthrough, hangs off rows whose name starts with `QA-011 `: contractors (`name`), the
+     supplier (`company_name`) and the product (`name`). Lots have no name, so a QA lot is one
+     whose supplier is a `QA-011` supplier.
   3. **Cleanup**: `specs/011-labour-commission-ledger/qa/cleanup-qa-011.sql`, run in the Supabase
-     SQL editor (or `psql`), never from the app. In **one transaction** it:
-     - `alter table … disable trigger` on exactly the four named guards
+     SQL editor (or `psql`), never from the app. It needs no input. In **one transaction** it:
+     - **counts the QA-scoped rows in every table it will delete from, at run time**, into a temp
+       table, and prints them (`raise notice`) so the dry run shows what will go. Counts are not
+       pasted in from the seed run, because the walkthrough adds rows the seed script never saw;
+     - `alter table … disable trigger` on exactly the four delete-blocking triggers
        (`trg_contractor_ledger_entries_immutable`, `trg_contractor_payment_allocations_immutable`,
-       `trg_contractor_payments_guard`, `trg_contractor_settlements_guard`);
+       `trg_contractor_payments_guard`, `trg_contractor_settlements_guard`). The fifth trigger,
+       `trg_contractor_payment_allocations_guard`, fires only on insert/update and is **never**
+       disabled;
      - deletes QA rows children-first (allocations → ledger entries → settlements → payments →
        010 rows: QA batches' `inventory_movements`, then `recompute_product_quantity_on_hand`,
-       `production_batches`, QA lot and product → QA contractors);
-     - checks each delete's row count equals the recorded seed count, and raises (rolling
-       everything back) on any mismatch;
+       `production_batches`, QA lot, product and supplier → QA contractors);
+     - checks each delete's row count equals that table's count taken at the start, and raises
+       (rolling everything back) on any mismatch;
      - re-enables the four triggers; runs zero-residue queries.
      The first run ends in `rollback` (dry run); only then is it run with `commit`.
 - **Rationale**: `ALTER TABLE … DISABLE TRIGGER` is transactional. Other sessions never see the

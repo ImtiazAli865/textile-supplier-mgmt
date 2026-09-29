@@ -4,10 +4,19 @@
 
 ## Prerequisites
 
-1. Apply `supabase/migrations/0011_labour_commission_ledger.sql` (after 0001–0010).
+1. Apply `supabase/migrations/0011_labour_commission_ledger.sql`. 0001–0010 are already live
+   (0010 re-verified 2026-09-29); apply only 0011.
 2. `npm run dev`, then sign in.
-3. Seed through the UI (010 screens): contractors **"Rashid"** and **"Kamal"**; a weight lot; a
-   manufactured product with a default labour rate of Rs 10.00. Issue and complete for Rashid:
+3. **Every row created in this walkthrough is on the live database and must carry the `QA-011 `
+   prefix**: contractor names, the supplier's company name, the product name, and every
+   contractor created in a later section. Lots have no name of their own; a lot is QA data
+   because its supplier is `QA-011 Supplier`, so never add a QA lot to a real supplier. Ledger
+   entries, payments and settlements can't be edited or deleted, so an untagged row stays in the
+   production khata for good; §9's cleanup finds rows only by this prefix. Below, "Rashid" is
+   short for `QA-011 Rashid`, and so on.
+   Seed through the UI (010 screens): contractors **`QA-011 Rashid`** and **`QA-011 Kamal`**;
+   supplier **`QA-011 Supplier`** with one weight lot; a manufactured product
+   **`QA-011 Washcloth`** with a default labour rate of Rs 10.00. Issue and complete for Rashid:
    - **PB-A**: 1,500 packets × Rs 10 → labour Rs 15,000, completed on **D1**
    - **PB-B**: 900 packets × Rs 10 → labour Rs 9,000, completed on **D1**
    - **PB-C**: issued only (not completed)
@@ -44,13 +53,13 @@
 
 ## 3. Opening balance (US3)
 
-- [ ] Create contractor "Naveed". Record opening balance **Rs 12,000 owed**, dated D1. First khata
-      row; balance 12,000 (US3-1). Record a 12,000 unlinked payment → balance 0.
+- [ ] Create contractor **`QA-011 Naveed`**. Record opening balance **Rs 12,000 owed**, dated D1.
+      First khata row; balance 12,000 (US3-1). Record a 12,000 unlinked payment → balance 0.
 - [ ] Try a second opening balance for Naveed: refused, pointing to adjustments (US3-3).
-- [ ] Create "Imran"; record an adjustment dated D2; then try an opening balance dated D3:
-      refused — must be on or before D2 (US3-4). Dated D1: accepted. Imran's advance direction:
-      record for another new contractor an **advance of Rs 3,000** → balance "Rs 3,000 advance"
-      (US3-2).
+- [ ] Create **`QA-011 Imran`**; record an adjustment dated D2; then try an opening balance dated
+      D3: refused — must be on or before D2 (US3-4). Dated D1: accepted.
+- [ ] Advance direction: create **`QA-011 Advance`** and record an **advance of Rs 3,000** →
+      balance "Rs 3,000 advance" (US3-2).
 
 ## 4. Reversal and adjustments (US4)
 
@@ -81,7 +90,8 @@ Use a contractor whose earliest entry is D1 and who has entries on D1–D3.
 - [ ] Complete a batch for a *different* contractor dated ≤ D2: succeeds (US5-5).
 - [ ] Settle again up to today: period starts D2 + 1; opening = previous closing (US5-2).
 - [ ] Settle with an end date after today, or before the period start: refused (US5-7).
-- [ ] New contractor with no entries → Settle: refused "nothing to settle" (US5-8).
+- [ ] New contractor **`QA-011 Empty`** with no entries → Settle: refused "nothing to settle"
+      (US5-8).
 - [ ] Print the statement: contractor name/phone, period, opening, every row in the period with
       running balance, totals, closing, two signature lines; no mismatch banner (US5-9, FR-030).
 
@@ -130,16 +140,22 @@ where (b.status = 'completed') <> (e.id is not null)
 
 ## 9. Clean up (live Supabase — research.md, "race tests run on live Supabase")
 
-All QA runs on the live database, so every QA row must be tagged and removed.
+All QA runs on the live database, so every QA row must be tagged and removed. This covers both
+the T040 script's rows and everything created by hand in §1–§6.
 
-- [ ] Seed only through contractors named `QA-011 …` (plus a `QA-011` lot and product). The seed
-      script prints the rows created per table; keep that output.
+- [ ] **Untagged-row check first**: list the `contractors` (`name`), `suppliers`
+      (`company_name`) and `products` (`name`) rows created since QA started whose name does
+      **not** start with `QA-011 `, and the `raw_material_purchases` created since then whose
+      supplier is not a `QA-011` supplier. Each one must be real business data. If any is a QA row
+      entered without the prefix, stop and fix it before cleaning up: the cleanup can't see it.
 - [ ] Open `specs/011-labour-commission-ledger/qa/cleanup-qa-011.sql` in the Supabase SQL editor.
-      Fill in the expected counts from the seed output.
-- [ ] **Dry run**: run it as written, ending in `rollback`. Confirm it reaches the end with no
-      count-mismatch error, and afterwards the QA rows are **still present** and a direct `update`
-      on `contractor_ledger_entries` is **still refused** (`IMMUTABLE_RECORD`), proving the
-      triggers were restored.
+      Nothing needs filling in: the script counts the `QA-011` rows in each table itself when it
+      starts.
+- [ ] **Dry run**: run it as written, ending in `rollback`. Read the per-table counts it prints
+      and check they look right for what the seed script and the walkthrough created. Confirm it
+      reaches the end with no count-mismatch error, and afterwards the QA rows are **still
+      present** and a direct `update` on `contractor_ledger_entries` is **still refused**
+      (`IMMUTABLE_RECORD`), proving the triggers were restored.
 - [ ] **Real run**: change the final `rollback` to `commit` and run it.
 - [ ] Zero residue: the script's final queries return 0 rows for every `QA-011` scope in every
       table the seed wrote to (the four 011 tables, `production_batches`, `inventory_movements`,

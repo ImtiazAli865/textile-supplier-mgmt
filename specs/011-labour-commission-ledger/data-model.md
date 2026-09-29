@@ -4,7 +4,8 @@
 **Migration**: `supabase/migrations/0011_labour_commission_ledger.sql` (new; 0001–0010 are not
 edited)
 
-Four new tables, one helper, six new write functions, four guard triggers, and a redefinition of
+Four new tables, one helper, six new write functions, five triggers (four that block deletes and
+unwanted updates, plus the over-allocation guard), and a redefinition of
 010's `complete_production_batch` with the same signature. `contractors` and `production_batches`
 (0010) get no new columns. Decisions and alternatives are in [research.md](./research.md); the
 architecture is [ADR-0010](../../history/adr/0010-contractor-payment-allocation-and-settlement-lock.md).
@@ -270,9 +271,13 @@ Every function raises `'CODE: …'` or `'CODE:<value>'` messages mapped to frien
 
 ### `complete_production_batch` (REDEFINED, signature unchanged from 0010)
 
-Lock order and additions only; every other line is copied verbatim from 0010.
+Only the changes are shown; every other line is copied verbatim from 0010. The full list of
+differences from 0010: two new declarations, a pre-lock lookup that takes over 0010's `NOT_FOUND`
+check, the contractor lock plus `BATCH_CONTRACTOR_CHANGED`, the `PERIOD_SETTLED` check, and the
+earning insert (tasks.md T005).
 
 ```sql
+  -- declare: add  v_contractor_id uuid;  v_settled_until date;
   -- (input guards unchanged)
   select contractor_id into v_contractor_id from production_batches where id = p_id;   -- no lock
   if not found then raise exception 'NOT_FOUND: batch % does not exist', p_id; end if;

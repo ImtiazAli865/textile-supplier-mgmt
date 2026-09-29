@@ -38,7 +38,10 @@ checked against `node_modules/next/dist/docs/` before use (CLAUDE.md).
 - New functions: `contractor_settled_until`, `record_contractor_payment`,
   `reverse_contractor_payment`, `record_contractor_opening_balance`,
   `record_contractor_adjustment`, `settle_contractor_period`, `reopen_contractor_settlement`.
-- New triggers: one over-allocation guard and three immutability guards.
+- New triggers (five): four that block deletes and unwanted updates
+  (`trg_contractor_ledger_entries_immutable`, `trg_contractor_payment_allocations_immutable`,
+  `trg_contractor_payments_guard`, `trg_contractor_settlements_guard`), and one over-allocation
+  guard on insert/update (`trg_contractor_payment_allocations_guard`).
 - Redefined, same signature: `complete_production_batch` (0010).
 
 No Storage buckets.
