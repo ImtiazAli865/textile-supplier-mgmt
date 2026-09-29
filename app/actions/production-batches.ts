@@ -76,10 +76,13 @@ export async function completeProductionBatch(
   try {
     const user = await requireCurrentUser();
     const parsed = batchCompleteInputSchema.parse(input);
-    const { productId } = await completeProductionBatchRecord(id, parsed, user.id);
+    const { productId, contractorId } = await completeProductionBatchRecord(id, parsed, user.id);
     revalidatePath("/production-batches");
     revalidatePath(`/production-batches/${id}`);
     revalidatePath(`/products/${productId}`);
+    // 011: completion posts the contractor's earning.
+    revalidatePath("/contractors");
+    revalidatePath(`/contractors/${contractorId}`);
     return { success: true };
   } catch (error) {
     return fail(error);

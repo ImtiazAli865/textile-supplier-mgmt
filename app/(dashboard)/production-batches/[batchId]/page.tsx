@@ -4,6 +4,8 @@ import { getProductionBatch } from "@/lib/production-batches/service";
 import { BatchCompleteForm } from "@/components/production-batches/batch-complete-form";
 import { BatchCostSummary } from "@/components/production-batches/batch-cost-summary";
 import { BatchStatusControls } from "@/components/production-batches/batch-status-controls";
+import { getBatchPaymentStatus } from "@/lib/contractor-ledger/service";
+import { BatchPaymentStatusTable } from "@/components/contractor-ledger/batch-payment-status-table";
 
 const STATUS_STYLES: Record<string, string> = {
   issued: "bg-blue-100 text-blue-800",
@@ -23,6 +25,8 @@ export default async function ProductionBatchDetailPage({ params }: ProductionBa
   const { batchId } = await params;
   const batch = await getProductionBatch(batchId);
   if (!batch) notFound();
+  // 011 (FR-006): labour payment status, completed batches only.
+  const labourPayment = batch.status === "completed" ? await getBatchPaymentStatus(batch.id) : null;
 
   return (
     <div className="max-w-3xl space-y-6">
@@ -118,6 +122,36 @@ export default async function ProductionBatchDetailPage({ params }: ProductionBa
 
       {batch.completion && (
         <BatchCostSummary completion={batch.completion} weightIssuedKg={batch.weightIssuedKg} />
+      )}
+
+      {labourPayment && (
+        <section className="space-y-3">
+          <div className="flex items-baseline justify-between">
+            <h2 className="text-sm font-semibold text-zinc-900">Labour payment</h2>
+            <Link href={`/contractors/${labourPayment.contractorId}`} className="text-xs text-zinc-600 underline">
+              {batch.contractorName}&apos;s khata
+            </Link>
+          </div>
+          <BatchPaymentStatusTable batches={[labourPayment]} />
+          {labourPayment.payments.length > 0 && (
+            <ul className="rounded border border-zinc-200 bg-white text-sm text-zinc-900">
+              {labourPayment.payments.map((payment) => (
+                <li
+                  key={payment.paymentId}
+                  className={`flex justify-between border-b border-zinc-100 px-4 py-2 last:border-b-0 ${
+                    payment.status === "reversed" ? "text-zinc-400 line-through" : ""
+                  }`}
+                >
+                  <span>Cash payment · {payment.paymentDate}</span>
+                  <span>
+                    {rs(payment.amount)}
+                    {payment.status === "reversed" && " (reversed)"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       )}
 
       {batch.status === "issued" && (

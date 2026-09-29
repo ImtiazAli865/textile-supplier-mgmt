@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listContractors } from "@/lib/contractors/service";
+import { listContractorBalances } from "@/lib/contractor-ledger/service";
 import { ContractorFilters, ContractorList } from "@/components/contractors/contractor-list";
 import type { ContractorStatus } from "@/lib/contractors/schema";
 
@@ -14,7 +15,7 @@ export default async function ContractorsPage({ searchParams }: ContractorsPageP
   const status = VALID_STATUSES.includes(params.status as ContractorStatus)
     ? (params.status as ContractorStatus)
     : undefined;
-  const contractors = await listContractors({ status });
+  const [contractors, balances] = await Promise.all([listContractors({ status }), listContractorBalances()]);
 
   return (
     <div>
@@ -28,7 +29,7 @@ export default async function ContractorsPage({ searchParams }: ContractorsPageP
         </Link>
       </div>
       <ContractorFilters />
-      <ContractorList contractors={contractors} />
+      <ContractorList contractors={contractors} balances={Object.fromEntries(balances)} />
     </div>
   );
 }

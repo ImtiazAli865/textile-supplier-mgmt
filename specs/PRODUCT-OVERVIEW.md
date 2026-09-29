@@ -276,7 +276,7 @@ feature conflict). See "Shared-table decisions" below.
 | 008 | Performa Invoicing | Invoice generation with auto signature/stamp, GST invoice attachment, invoice numbering; writes `ledger_entries` Credits for Performa-Invoice customers | Planned |
 | 009 | Customer Ledger | Presentation only: computed running-balance view, ageing, cheque/payment capture (with bounce reversal), opening-balance entry, export | Planned |
 | 010 | Production Batches | Lot → packets, wastage reporting, cost absorption, average cost per packet; writes `inventory_movements`; creates the minimal `contractors` table; one-time manufactured opening stock (+ at most one correction) | 🟡 Implemented — awaiting migration 0010 + quickstart verification |
-| 011 | Labour / Commission Ledger | Contractor accounts, accrual from batches, payments, weekly/monthly settlement | Planned |
+| 011 | Labour / Commission Ledger | Contractor khata: earnings posted by batch completion, cash-only payments linked to batches, opening balance, reversals and adjustments, period settlements that lock earlier dates (incl. batch completion), printable statement (ADR-0010) | ✅ Implemented |
 | 012 | Finished Goods Inventory | Presentation only: stock-per-product views over `inventory_movements`, with cost value | Planned |
 | 013 | Profit & Reports | Full rollup across purchases, batches, labour, POs, challans, invoices, ledger | Planned |
 
@@ -363,3 +363,15 @@ QuickBooks, FBR filing); mobile apps (responsive web is sufficient).
 - **Tech stack**: Next.js + Supabase (Postgres + Supabase Auth), deployed on Vercel (see
   [ADR-0001](../history/adr/0001-firebase-to-supabase-backend.md)). All modules from 003
   onward are planned directly against Postgres.
+
+## Polish Backlog (known, low priority)
+
+Pre-existing issues across features, deliberately deferred to a polish pass after 012/013.
+
+- **Form submit before hydration (001–011)**: every React Hook Form form can be submitted in
+  the brief moment after the page appears and before React hydrates it. That falls back to a
+  plain browser GET to the same URL, which reloads the page and clears what was typed; nothing
+  is saved. Fraction of a second in production, longer in dev on first compile. Fix idea: keep
+  each Submit button disabled until hydrated. Logged 2026-09-29 during 011 QA.
+- **Faint text inside inputs under a dark-mode OS setting (app-wide)**: inputs inherit the
+  dark-mode foreground colour. Noted during 010's UI pass.

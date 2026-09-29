@@ -57,6 +57,8 @@ export class CorrectionExistsError extends Error {}
 export class StockAlreadyShippedError extends Error {}
 export class CorrectionBeforeEntryError extends Error {}
 export class CorrectionBelowZeroError extends Error {}
+/** 011: completion dated inside the contractor's settled period (FR-003). */
+export class ContractorPeriodSettledError extends Error {}
 
 /** Message is stable so the complete form can recognise it and re-ask for confirmation. */
 export const RETURNED_WEIGHT_UNCONFIRMED_MESSAGE =
@@ -165,6 +167,16 @@ function toFriendlyBatchError(error: { code?: string; message: string }): Error 
   if (msg.includes("CORRECTION_BELOW_ZERO")) {
     return new CorrectionBelowZeroError("This correction would take stock below zero.");
   }
+  // 011: the contractor's khata is settled up to a date on or after the completion date.
+  if (msg.includes("PERIOD_SETTLED")) {
+    const date = afterColon(msg, "PERIOD_SETTLED");
+    return new ContractorPeriodSettledError(
+      `This contractor is settled up to ${date}. Use a completion date after ${date}, or reopen that settlement.`
+    );
+  }
+  if (msg.includes("BATCH_CONTRACTOR_CHANGED")) {
+    return new Error("This batch's contractor was just changed. Reload and try again.");
+  }
   if (msg.includes("NOT_FOUND")) return new BatchNotFoundError("Not found.");
   return new Error(error.message);
 }
@@ -220,7 +232,7 @@ export async function completeProductionBatchRecord(
   id: string,
   input: BatchCompleteInput,
   userId: string
-): Promise<{ productId: string }> {
+): Promise<{ productId: string; contractorId: string }> {
   const { error } = await getSupabaseAdmin().rpc("complete_production_batch", {
     p_id: id,
     p_packets_produced: Number(input.packetsProduced),
@@ -233,11 +245,11 @@ export async function completeProductionBatchRecord(
 
   const { data, error: fetchError } = await getSupabaseAdmin()
     .from("production_batches")
-    .select("product_id")
+    .select("product_id, contractor_id")
     .eq("id", id)
     .single();
   if (fetchError) throw fetchError;
-  return { productId: data.product_id as string };
+  return { productId: data.product_id as string, contractorId: data.contractor_id as string };
 }
 
 export async function recordOpeningStockRecord(
