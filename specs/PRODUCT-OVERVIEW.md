@@ -267,15 +267,15 @@ feature conflict). See "Shared-table decisions" below.
 |---|---------|---------|--------|
 | 001 | Supplier Directory | Suppliers: contacts, materials, active/inactive, search/filter | ✅ Implemented |
 | 002 | Raw Material Purchases | Purchases by weight (kg)/rate, total cost, remaining-weight lock | ✅ Implemented |
-| 003 | Product Catalog | Foundation catalog: traded/manufactured, customer item codes, yield ratios, labour rates, prices | Planned (next) |
-| 003b | Traded-Goods Purchasing (extends 002) | Adds a per-unit `purchase_mode` to the existing purchases table (not the weight columns); introduces the `inventory_movements` table as its first writer | Planned |
-| 004 | Trade Names & Document Settings | Letterheads, NTN, signature/stamp upload, document number sequences, Supabase Storage setup | Planned |
-| 005 | Customers | Legal/display names, addresses, NTN, payment terms, usable trade names, Performa Invoice flag; introduces the `ledger_entries` table to hold each customer's opening balance | Planned |
-| 006 | Customer Purchase Orders | PO intake, line items, Ordered/Delivered/Invoiced tracking, PDF attachment | Planned |
-| 007 | Challans | Delivery challans against POs, accepted-vs-delivered, rejections/returns, signed-copy upload; writes `inventory_movements` and, for non-Performa customers, `ledger_entries` Credits | Planned |
-| 008 | Performa Invoicing | Invoice generation with auto signature/stamp, GST invoice attachment, invoice numbering; writes `ledger_entries` Credits for Performa-Invoice customers | Planned |
-| 009 | Customer Ledger | Presentation only: computed running-balance view, ageing, cheque/payment capture (with bounce reversal), opening-balance entry, export | Planned |
-| 010 | Production Batches | Lot → packets, wastage reporting, cost absorption, average cost per packet; writes `inventory_movements`; creates the minimal `contractors` table; one-time manufactured opening stock (+ at most one correction) | 🟡 Implemented — awaiting migration 0010 + quickstart verification |
+| 003 | Product Catalog | Foundation catalog: traded/manufactured, customer item codes, yield ratios, labour rates, prices | ✅ Implemented |
+| 003b | Traded-Goods Purchasing (extends 002) | Adds a per-unit `purchase_mode` to the existing purchases table (not the weight columns); introduces the `inventory_movements` table as its first writer | ✅ Implemented |
+| 004 | Trade Names & Document Settings | Letterheads, NTN, signature/stamp upload, document number sequences, Supabase Storage setup | ✅ Implemented |
+| 005 | Customers | Legal/display names, addresses, NTN, payment terms, usable trade names, Performa Invoice flag; introduces the `ledger_entries` table to hold each customer's opening balance | ✅ Implemented |
+| 006 | Customer Purchase Orders | PO intake, line items, Ordered/Delivered/Invoiced tracking, PDF attachment | ✅ Implemented |
+| 007 | Challans | Delivery challans against POs, accepted-vs-delivered, rejections/returns, signed-copy upload; writes `inventory_movements` and, for non-Performa customers, `ledger_entries` Credits | ✅ Implemented |
+| 008 | Performa Invoicing | Invoice generation with auto signature/stamp, GST invoice attachment, invoice numbering; writes `ledger_entries` Credits for Performa-Invoice customers | ✅ Implemented |
+| 009 | Customer Ledger | Presentation only: computed running-balance view, ageing, cheque/payment capture (with bounce reversal), opening-balance entry, export | ✅ Implemented |
+| 010 | Production Batches | Lot → packets, wastage reporting, cost absorption, average cost per packet; writes `inventory_movements`; creates the minimal `contractors` table; one-time manufactured opening stock (+ at most one correction) | ✅ Implemented |
 | 011 | Labour / Commission Ledger | Contractor khata: earnings posted by batch completion, cash-only payments linked to batches, opening balance, reversals and adjustments, period settlements that lock earlier dates (incl. batch completion), printable statement (ADR-0010) | ✅ Implemented |
 | 012 | Finished Goods Inventory | Presentation only: stock-per-product views over `inventory_movements`, with cost value | Planned |
 | 013 | Profit & Reports | Full rollup across purchases, batches, labour, POs, challans, invoices, ledger | Planned |
