@@ -42,9 +42,9 @@ revenue streams**:
    purchased **by weight (kg)** and handed to a manufacturing contractor who converts it
    into finished, packaged products. The contractor is paid a fixed rate per packet (e.g.
    Rs 6/packet); they sub-contract to home workers at a lower rate (e.g. Rs 5/packet),
-   keeping the difference as their own commission. The business tracks what it pays the
-   contractor and, for reference only, the contractor's commission margin — never
-   sub-workers' individual payments. Customers: **Chaseup** ("M Zayan Impex"),
+   keeping the difference as their own commission. The business tracks only what it pays the
+   contractor — never the contractor's commission margin or sub-workers' individual payments
+   (out of scope; see the Labour / Commission Ledger note). Customers: **Chaseup** ("M Zayan Impex"),
    **ChaseValue** ("M.A Textile"), **Kifayat** ("Rashid Towel"). Products (data-driven,
    never hardcoded): 6-Pack Washcloth, 4-Pack Washcloth, 10-Pack Roll, 10-Pack Ribbon, etc.
    **Profit = Sales Revenue − Raw material cost − Labour/commission cost.**
@@ -140,11 +140,24 @@ batches cover multi-lot/multi-product scenarios).
 
 ## Labour / Commission Ledger (Contractor Khata)
 
-Per contractor: name, contact, default rate/packet, and (reference only) their
-sub-contract rate so their commission margin is visible. Amount earned accrues
+Per contractor: name, contact. Amount earned accrues
 automatically from production batches (packets × rate/packet); payments made are logged
 separately; running balance = earned − paid. Weekly/monthly settlement views. Structurally
 identical to a worker khata.
+
+> **Revised 2026-09-29 (011 pre-spec agreement).** This section originally also listed a
+> per-contractor "default rate/packet" and a reference-only "sub-contract rate so their
+> commission margin is visible". Both were dropped deliberately, not overlooked:
+> - **Sub-contract rate / commission margin — explicitly out of scope.** How a contractor
+>   pays their own home workers or sub-partners (e.g. charging Rs 6/packet, paying Rs 5,
+>   keeping Rs 1) is the contractor's own internal business and is invisible to this system.
+>   MA Textile deals with, and pays, only the one contractor; it never records sub-worker
+>   rates or margins, even for reference.
+> - **No contractor rate table.** A flat per-contractor rate was already rejected by ADR-0008
+>   (the rate depends mostly on the product). 011 also declines a contractor × product rate
+>   table: the batch's rate is entered per batch, pre-filled from the product's default
+>   labour rate only, and that entered rate is authoritative. Revisit only if real batches
+>   show staff routinely overriding the product default for a particular contractor.
 
 ## Finished Goods Inventory
 
@@ -322,7 +335,8 @@ feature conflict). See "Shared-table decisions" below.
 ## Explicitly Out of Scope
 
 Customer-facing portal/login; generating the formal GST Sales Tax Invoice; payroll or
-per-worker payments to the contractor's home workers; e-commerce/online payments; barcode
+per-worker payments to the contractor's home workers, and any record of a contractor's
+sub-contract rate or commission margin (see the Labour / Commission Ledger note); e-commerce/online payments; barcode
 scanning or warehouse location management; multi-currency; accounting integrations (Tally,
 QuickBooks, FBR filing); mobile apps (responsive web is sufficient).
 
